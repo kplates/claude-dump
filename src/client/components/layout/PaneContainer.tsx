@@ -39,7 +39,7 @@ export function PaneContainer({
     );
   }
 
-  const showTabs = paneList.length > 1;
+  const multiPane = paneList.length > 1;
 
   return (
     <div className="flex-1 flex min-w-0">
@@ -60,19 +60,19 @@ export function PaneContainer({
           <div
             key={pane.id}
             className={`flex-1 flex flex-col min-w-0 ${
-              isActive ? 'ring-1 ring-claude-accent/40 ring-inset' : ''
-            } ${showTabs ? 'border-r border-claude-border last:border-r-0' : ''}`}
+              isActive && multiPane ? 'ring-1 ring-claude-accent/40 ring-inset' : ''
+            } ${multiPane ? 'border-r border-claude-border last:border-r-0' : ''}`}
             onClick={() => onActivatePane(pane.id)}
           >
-            {showTabs && (
-              <div className="flex items-center justify-between px-3 py-1.5 bg-claude-surface border-b border-claude-border">
-                <div className="truncate flex-1 min-w-0">
-                  <span className="text-[10px] text-claude-muted">{projectName}</span>
-                  <span className="text-[10px] text-claude-muted mx-1">/</span>
-                  <span className="text-xs text-claude-text">{truncatedTitle}</span>
-                </div>
-                <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                  <EditorDropdown path={projectInfo?.path} />
+            <div className="flex items-center justify-between px-3 py-1.5 bg-claude-surface border-b border-claude-border">
+              <div className="truncate flex-1 min-w-0">
+                <span className="text-[10px] text-claude-muted">{projectName}</span>
+                <span className="text-[10px] text-claude-muted mx-1">/</span>
+                <span className="text-xs text-claude-text">{truncatedTitle}</span>
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                <EditorDropdown path={projectInfo?.path} />
+                {multiPane && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -82,9 +82,9 @@ export function PaneContainer({
                   >
                     <X size={12} />
                   </button>
-                </div>
+                )}
               </div>
-            )}
+            </div>
             <MainArea
               turns={pane.turns}
               loading={pane.loading}
