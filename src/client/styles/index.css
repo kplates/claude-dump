@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2a2a4a transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: #2a2a4a;
+    border-radius: 3px;
+  }
+
+  pre code {
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+}
+
+/* diff2html overrides for dark theme */
+.d2h-wrapper {
+  font-size: 0.85rem !important;
+}
+
+.d2h-file-header {
+  display: none !important;
+}
+
+/* Reset all diff2html borders, padding, margins */
+.d2h-wrapper *,
+.d2h-wrapper *::before,
+.d2h-wrapper *::after {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Unified background for the entire diff */
+.d2h-file-wrapper,
+.d2h-file-diff,
+.d2h-code-wrapper,
+.d2h-diff-table,
+.d2h-diff-tbody,
+.d2h-diff-tbody tr,
+.d2h-diff-tbody td {
+  background-color: #16213e !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.d2h-diff-table {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+
+/* Line numbers - just style the text, inherit background */
+.d2h-code-linenumber,
+.d2h-code-side-linenumber {
+  color: #8892b0 !important;
+  position: static !important;
+  padding: 0 8px !important;
+  text-align: right !important;
+  vertical-align: top !important;
+  user-select: none;
+}
+
+/* In inline view, hide the old file line number */
+.d2h-code-linenumber .line-num1 {
+  display: none !important;
+}
+
+/* Code content */
+.d2h-code-line,
+.d2h-code-side-line {
+  background-color: transparent !important;
+  color: #eaeaea !important;
+  width: auto !important;
+  padding: 0 !important;
+  display: block !important;
+}
+
+.d2h-code-line-ctn {
+  background-color: transparent !important;
+  white-space: pre-wrap !important;
+  word-break: break-all !important;
+}
+
+.d2h-code-line-prefix {
+  user-select: none;
+}
+
+/* Info header (@@ lines) */
+.d2h-info {
+  background-color: #1a1a2e !important;
+  color: #8892b0 !important;
+  position: static !important;
+}
+
+.d2h-diff-tbody td.d2h-info,
+.d2h-diff-tbody td.d2h-code-linenumber.d2h-info {
+  background-color: #1a1a2e !important;
+  width: 100% !important;
+}
+
+/* Deletions (red) */
+.d2h-diff-tbody tr.d2h-del td,
+.d2h-diff-tbody td.d2h-del {
+  background-color: rgba(233, 69, 96, 0.15) !important;
+}
+
+/* Insertions (green) */
+.d2h-diff-tbody tr.d2h-ins td,
+.d2h-diff-tbody td.d2h-ins {
+  background-color: rgba(80, 200, 120, 0.15) !important;
+}
