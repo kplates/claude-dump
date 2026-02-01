@@ -14,6 +14,7 @@ import { ReadTool } from '../tools/ReadTool';
 import { GlobTool } from '../tools/GlobTool';
 import { GrepTool } from '../tools/GrepTool';
 import { GenericTool } from '../tools/GenericTool';
+import { EditorDropdown } from '../shared/EditorDropdown';
 import type { ToolCall } from '@shared/types';
 
 interface ToolUseBlockProps {
@@ -53,6 +54,11 @@ export function ToolUseBlock({ call }: ToolUseBlockProps) {
         )}
         {call.isError && (
           <span className="text-xs text-red-400 ml-auto">error</span>
+        )}
+        {filePath && (
+          <div className={call.isError ? '' : 'ml-auto'}>
+            <EditorDropdown path={filePath} />
+          </div>
         )}
       </div>
 
