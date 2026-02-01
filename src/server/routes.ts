@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { execFile } from 'child_process';
 import type { SessionStore } from './session-store.js';
 
 export function createRoutes(store: SessionStore): Router {
@@ -32,6 +33,31 @@ export function createRoutes(store: SessionStore): Router {
     } catch (err) {
       res.status(500).json({ error: 'Failed to load session' });
     }
+  });
+
+  const EDITORS: Record<string, string> = {
+    cursor: 'cursor',
+    vscode: 'code',
+  };
+
+  router.post('/open-in-editor', (req, res) => {
+    const { path, editor } = req.body;
+    if (!path || typeof path !== 'string') {
+      res.status(400).json({ error: 'Missing path' });
+      return;
+    }
+    const cmd = EDITORS[editor];
+    if (!cmd) {
+      res.status(400).json({ error: `Unknown editor: ${editor}` });
+      return;
+    }
+    execFile(cmd, [path], (err) => {
+      if (err) {
+        res.status(500).json({ error: `Failed to open ${editor}` });
+        return;
+      }
+      res.json({ ok: true });
+    });
   });
 
   return router;

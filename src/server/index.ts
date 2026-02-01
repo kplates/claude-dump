@@ -18,6 +18,7 @@ async function main() {
   const store = new SessionStore();
 
   // REST API
+  app.use(express.json());
   app.use("/api", createRoutes(store));
 
   // WebSocket server (noServer mode to avoid conflicts with Vite HMR)
