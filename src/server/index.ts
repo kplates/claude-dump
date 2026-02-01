@@ -7,15 +7,35 @@ import { ProjectWatcher } from "./watcher.js";
 import { createRoutes } from "./routes.js";
 import type { ClientMessage, ServerMessage } from "../shared/protocol.js";
 
-const PORT = parseInt(process.env.PORT || "3456", 10);
+const args = process.argv.slice(2);
+const pathArg = args.find((a) => !a.startsWith("-"));
+const portFlag = args.indexOf("--port");
+const PORT = parseInt(
+  portFlag >= 0 && args[portFlag + 1] ? args[portFlag + 1] : process.env.PORT || "3456",
+  10
+);
 const isDev = process.env.NODE_ENV !== "production";
+
+if (args.includes("--help") || args.includes("-h")) {
+  console.log(`
+  Usage: claude-dump [path] [options]
+
+  Arguments:
+    path            Path to Claude projects directory (default: ~/.claude/projects)
+
+  Options:
+    --port <port>   Port to listen on (default: 3456)
+    -h, --help      Show this help message
+`);
+  process.exit(0);
+}
 
 async function main() {
   const app = express();
   const server = http.createServer(app);
 
   // Session store
-  const store = new SessionStore();
+  const store = new SessionStore(pathArg);
 
   // REST API
   app.use(express.json());

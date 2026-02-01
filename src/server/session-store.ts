@@ -4,7 +4,7 @@ import { homedir } from "os";
 import { parseSessionFile, parseNewLines } from "./parser.js";
 import type { ProjectInfo, SessionInfo, Turn } from "../shared/types.js";
 
-const PROJECTS_DIR = path.join(homedir(), ".claude", "projects");
+const DEFAULT_PROJECTS_DIR = path.join(homedir(), ".claude", "projects");
 
 interface SessionIndex {
   version: number;
@@ -27,16 +27,21 @@ interface SessionIndexEntry {
 }
 
 export class SessionStore {
+  private projectsDir: string;
   private fileOffsets = new Map<string, number>();
   private cachedTurns = new Map<string, Turn[]>();
+
+  constructor(projectsDir?: string) {
+    this.projectsDir = projectsDir || DEFAULT_PROJECTS_DIR;
+  }
 
   async getProjects(): Promise<ProjectInfo[]> {
     const projects: ProjectInfo[] = [];
 
     try {
-      const dirs = await fs.readdir(PROJECTS_DIR);
+      const dirs = await fs.readdir(this.projectsDir);
       for (const dir of dirs) {
-        const dirPath = path.join(PROJECTS_DIR, dir);
+        const dirPath = path.join(this.projectsDir, dir);
         const stat = await fs.stat(dirPath).catch(() => null);
         if (!stat?.isDirectory()) continue;
 
@@ -94,7 +99,7 @@ export class SessionStore {
   }
 
   async getSessions(projectId: string): Promise<SessionInfo[]> {
-    const projectDir = path.join(PROJECTS_DIR, projectId);
+    const projectDir = path.join(this.projectsDir, projectId);
 
     // Build a lookup from the index for supplemental metadata
     const indexMap = new Map<string, SessionIndexEntry>();
@@ -147,7 +152,7 @@ export class SessionStore {
   }
 
   async getSessionTurns(projectId: string, sessionId: string): Promise<Turn[]> {
-    const filePath = path.join(PROJECTS_DIR, projectId, `${sessionId}.jsonl`);
+    const filePath = path.join(this.projectsDir, projectId, `${sessionId}.jsonl`);
 
     try {
       const turns = await parseSessionFile(filePath);
@@ -161,7 +166,7 @@ export class SessionStore {
   }
 
   async getNewTurns(projectId: string, sessionId: string): Promise<Turn[]> {
-    const filePath = path.join(PROJECTS_DIR, projectId, `${sessionId}.jsonl`);
+    const filePath = path.join(this.projectsDir, projectId, `${sessionId}.jsonl`);
     const lastOffset = this.fileOffsets.get(filePath) || 0;
 
     try {
@@ -190,11 +195,11 @@ export class SessionStore {
   }
 
   getFilePathForSession(projectId: string, sessionId: string): string {
-    return path.join(PROJECTS_DIR, projectId, `${sessionId}.jsonl`);
+    return path.join(this.projectsDir, projectId, `${sessionId}.jsonl`);
   }
 
   getProjectsDir(): string {
-    return PROJECTS_DIR;
+    return this.projectsDir;
   }
 }
 

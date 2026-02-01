@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 @layer base {
+  *, ::before, ::after {
+    border-color: var(--claude-border);
+  }
+
   /* Dark theme (default) */
   :root {
     --claude-bg: #1a1a2e;
@@ -84,6 +88,7 @@
 .d2h-diff-tbody tr,
 .d2h-diff-tbody td {
   background-color: var(--claude-diff-surface) !important;
+  border: none !important;
   padding: 0 !important;
   margin: 0 !important;
 }

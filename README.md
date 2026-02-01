@@ -18,36 +18,56 @@ claude-dump
 
 This starts a local server and opens the viewer in your browser at `http://localhost:3456`.
 
-### Options
+### Arguments
 
-| Environment Variable | Default | Description             |
-| -------------------- | ------- | ----------------------- |
-| `PORT`               | `3456`  | Port for the web server |
+```
+claude-dump [path] [options]
+```
 
-Example:
+| Argument / Option | Default              | Description                          |
+| ----------------- | -------------------- | ------------------------------------ |
+| `path`            | `~/.claude/projects` | Path to Claude projects directory    |
+| `--port <port>`   | `3456`               | Port for the web server              |
+| `-h, --help`      |                      | Show help message                    |
+
+Examples:
 
 ```bash
-PORT=8080 claude-dump
+# Default — reads from ~/.claude/projects
+claude-dump
+
+# Custom projects directory
+claude-dump /path/to/projects
+
+# Custom port
+claude-dump --port 8080
+
+# Both
+claude-dump /path/to/projects --port 8080
 ```
 
 ## Features
 
 - **Live updates** — conversations stream in real-time as you use Claude Code
 - **Project browser** — sidebar lists all your Claude Code projects and sessions
+- **Split panes** — open multiple sessions side-by-side (up to 4)
+- **Light / dark mode** — toggle between themes, preference is saved
+- **Open in editor** — open a project in Cursor or VS Code directly from the viewer
 - **Syntax highlighting** — code blocks are highlighted automatically
 - **Diff views** — file edits and writes render as unified diffs
 - **Thinking blocks** — collapsible extended thinking sections
 - **Tool call rendering** — specialized views for Bash, Edit, Write, Read, Glob, and Grep tools
 - **Session metadata** — timestamps, git branch, model info, and message counts
+- **Update notifications** — banner appears when a newer version is available on npm
 
 ## How it works
 
-claude-dump reads from `~/.claude/projects/`, where Claude Code stores conversation history as JSONL files. It watches for changes and pushes updates to the browser over WebSocket.
+claude-dump reads from `~/.claude/projects/` (or a custom path), where Claude Code stores conversation history as JSONL files. It watches for changes and pushes updates to the browser over WebSocket.
 
 ## Development
 
 ```bash
-git clone https://github.com/your-username/claude-dump.git
+git clone https://github.com/kplates/claude-dump.git
 cd claude-dump
 npm install
 npm run dev
@@ -58,6 +78,14 @@ npm run dev
 ```bash
 npm run build
 npm start
+```
+
+### Release
+
+```bash
+npm run release:patch   # 0.1.0 → 0.1.1
+npm run release:minor   # 0.1.0 → 0.2.0
+npm run release:major   # 0.1.0 → 1.0.0
 ```
 
 ## License
