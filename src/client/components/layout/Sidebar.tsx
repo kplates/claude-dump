@@ -24,7 +24,7 @@ export function Sidebar({
     <div className="w-80 min-w-[280px] bg-claude-surface border-r border-claude-border flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b border-claude-border flex items-center justify-between">
-        <h1 className="text-lg font-bold text-claude-text">ohclaudy</h1>
+        <h1 className="text-lg font-bold text-claude-text">Claude Dump</h1>
         <div className="flex items-center gap-1.5 text-xs">
           {connected ? (
             <>

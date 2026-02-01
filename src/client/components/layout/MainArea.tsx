@@ -14,7 +14,7 @@ export function MainArea({ turns, loading, selectedSession, sessions }: MainArea
     return (
       <div className="flex-1 flex items-center justify-center bg-claude-bg">
         <div className="text-center text-claude-muted">
-          <p className="text-lg mb-2">ohclaudy</p>
+          <p className="text-lg mb-2">Claude Dump</p>
           <p className="text-sm">Select a session to view the conversation</p>
         </div>
       </div>
