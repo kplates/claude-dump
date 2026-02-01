@@ -1,0 +1,16 @@
+{
+  "name": "Claude Dump",
+  "short_name": "Claude Dump",
+  "description": "Real-time viewer for Claude Code conversation history",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#1a1a2e",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "any",
+      "type": "image/png"
+    }
+  ]
+}

@@ -5,6 +5,8 @@ import { WebSocketServer, WebSocket } from "ws";
 import { SessionStore } from "./session-store.js";
 import { ProjectWatcher } from "./watcher.js";
 import { createRoutes } from "./routes.js";
+import { existsSync } from "fs";
+import { execFile } from "child_process";
 import type { ClientMessage, ServerMessage } from "../shared/protocol.js";
 
 const args = process.argv.slice(2);
@@ -15,6 +17,7 @@ const PORT = parseInt(
   10
 );
 const isDev = process.env.NODE_ENV !== "production";
+const noOpen = args.includes("--no-open");
 
 if (args.includes("--help") || args.includes("-h")) {
   console.log(`
@@ -25,6 +28,7 @@ if (args.includes("--help") || args.includes("-h")) {
 
   Options:
     --port <port>   Port to listen on (default: 3456)
+    --no-open       Don't open the browser automatically
     -h, --help      Show this help message
 `);
   process.exit(0);
@@ -176,8 +180,66 @@ async function main() {
 
   watcher.start();
 
-  server.listen(PORT, () => {
-    console.log(`\n  claude dump is running at http://localhost:${PORT}\n`);
+  server.listen(PORT, async () => {
+    const url = `http://localhost:${PORT}`;
+    console.log(`\n  claude dump is running at ${url}\n`);
+
+    if (!noOpen) {
+      openAppMode(url);
+    }
+  });
+}
+
+function openAppMode(url: string): void {
+  const platform = process.platform;
+
+  if (platform === "darwin") {
+    // macOS: check for known Chromium-based browsers at their standard paths
+    const browsers = [
+      "/Applications/Google Chrome.app",
+      "/Applications/Google Chrome Canary.app",
+      "/Applications/Chromium.app",
+      "/Applications/Microsoft Edge.app",
+      "/Applications/Brave Browser.app",
+    ];
+    const found = browsers.find((b) => existsSync(b));
+    if (found) {
+      execFile("open", ["-na", found, "--args", `--app=${url}`], (err) => {
+        if (err) console.log(`  could not open app window: ${err.message}`);
+      });
+    } else {
+      console.log("  tip: install Chrome or Edge to get a standalone window (no URL bar)");
+    }
+  } else if (platform === "win32") {
+    // Windows: try known browser paths
+    const browsers = [
+      `${process.env.PROGRAMFILES}\\Google\\Chrome\\Application\\chrome.exe`,
+      `${process.env["PROGRAMFILES(X86)"]}\\Google\\Chrome\\Application\\chrome.exe`,
+      `${process.env.PROGRAMFILES}\\Microsoft\\Edge\\Application\\msedge.exe`,
+    ];
+    const found = browsers.find((b) => existsSync(b));
+    if (found) {
+      execFile(found, [`--app=${url}`], (err) => {
+        if (err) console.log(`  could not open app window: ${err.message}`);
+      });
+    } else {
+      console.log("  tip: install Chrome or Edge to get a standalone window (no URL bar)");
+    }
+  } else {
+    // Linux: try well-known command names
+    const browsers = ["google-chrome", "google-chrome-stable", "chromium-browser", "chromium", "microsoft-edge"];
+    tryLinuxBrowser(browsers, url);
+  }
+}
+
+function tryLinuxBrowser(browsers: string[], url: string): void {
+  const name = browsers.shift();
+  if (!name) {
+    console.log("  tip: install Chrome or Chromium to get a standalone window (no URL bar)");
+    return;
+  }
+  execFile(name, [`--app=${url}`], (err) => {
+    if (err) tryLinuxBrowser(browsers, url);
   });
 }
 

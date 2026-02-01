@@ -2,7 +2,7 @@
 
 Real-time web viewer for your [Claude Code](https://docs.anthropic.com/en/docs/claude-code) conversation history.
 
-Browse, search, and review past Claude Code sessions in a live-updating web interface — with syntax highlighting, diff views for file edits, and collapsible thinking blocks.
+Browse and review past Claude Code sessions in a live-updating web interface — with syntax highlighting, diff views for file edits, and collapsible thinking blocks.
 
 ## Install
 
@@ -16,7 +16,7 @@ npm install -g claude-dump
 claude-dump
 ```
 
-This starts a local server and opens the viewer in your browser at `http://localhost:3456`.
+This starts a local server and opens the viewer in a standalone window (no URL bar) at `http://localhost:3456`. If Chrome or another Chromium-based browser is installed, it launches in app mode automatically.
 
 ### Arguments
 
@@ -28,6 +28,7 @@ claude-dump [path] [options]
 | ----------------- | -------------------- | ------------------------------------ |
 | `path`            | `~/.claude/projects` | Path to Claude projects directory    |
 | `--port <port>`   | `3456`               | Port for the web server              |
+| `--no-open`       |                      | Don't open the browser automatically |
 | `-h, --help`      |                      | Show help message                    |
 
 Examples:
@@ -48,6 +49,7 @@ claude-dump /path/to/projects --port 8080
 
 ## Features
 
+- **Standalone window** — opens in a chromeless app window (Chrome/Edge); also installable as a PWA
 - **Live updates** — conversations stream in real-time as you use Claude Code
 - **Project browser** — sidebar lists all your Claude Code projects and sessions
 - **Split panes** — open multiple sessions side-by-side (up to 4)
