@@ -1,5 +1,5 @@
 {
-  "name": "claude-dummp",
+  "name": "claude-dump",
   "version": "0.1.0",
   "description": "Real-time web viewer for Claude Code conversation history",
   "type": "module",
@@ -11,8 +11,14 @@
     "viewer",
     "ai"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kplates/claude-dump.git"
+  },
+  "homepage": "https://github.com/kplates/claude-dump",
+  "bugs": "https://github.com/kplates/claude-dump/issues",
   "bin": {
-    "claude-dummp": "./dist/server/index.js"
+    "claude-dump": "./dist/server/server/index.js"
   },
   "files": [
     "dist"
@@ -22,8 +28,12 @@
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
     "build:server": "tsc -p tsconfig.server.json",
-    "start": "node dist/server/index.js",
-    "prepublishOnly": "npm run build"
+    "start": "node dist/server/server/index.js",
+    "prepublishOnly": "npm run build",
+    "release": "npm publish",
+    "release:patch": "npm version patch && npm publish",
+    "release:minor": "npm version minor && npm publish",
+    "release:major": "npm version major && npm publish"
   },
   "dependencies": {
     "chokidar": "^4.0.0",

@@ -10,7 +10,7 @@ export type WatchEvent =
   | { type: 'new_session'; projectId: string; sessionId: string };
 
 export class ProjectWatcher {
-  private watcher: chokidar.FSWatcher | null = null;
+  private watcher: ReturnType<typeof chokidar.watch> | null = null;
   private callbacks: ChangeCallback[] = [];
 
   constructor(private store: SessionStore) {}

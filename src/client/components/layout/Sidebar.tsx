@@ -1,4 +1,5 @@
-import { ChevronRight, ChevronDown, Zap, ZapOff, MessageSquare, Columns2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ChevronRight, ChevronDown, Zap, ZapOff, MessageSquare, Columns2, Sun, Moon, ArrowUpCircle } from 'lucide-react';
 import type { ProjectInfo, SessionInfo } from '@shared/types';
 
 interface SidebarProps {
@@ -24,23 +25,53 @@ export function Sidebar({
   onOpenInNewPane,
   connected,
 }: SidebarProps) {
+  const [light, setLight] = useState(() =>
+    document.documentElement.classList.contains('light')
+  );
+  const [updateInfo, setUpdateInfo] = useState<{ current: string; latest: string } | null>(null);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('light', light);
+    localStorage.setItem('theme', light ? 'light' : 'dark');
+  }, [light]);
+
+  useEffect(() => {
+    fetch('/api/version')
+      .then((res) => res.json())
+      .then((data: { current: string; latest: string | null }) => {
+        if (data.latest && data.latest !== data.current) {
+          setUpdateInfo({ current: data.current, latest: data.latest });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="w-80 min-w-[280px] bg-claude-surface border-r border-claude-border flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b border-claude-border flex items-center justify-between">
         <h1 className="text-lg font-bold text-claude-text">Claude Dump</h1>
-        <div className="flex items-center gap-1.5 text-xs">
-          {connected ? (
-            <>
-              <Zap size={12} className="text-green-400" />
-              <span className="text-green-400">live</span>
-            </>
-          ) : (
-            <>
-              <ZapOff size={12} className="text-claude-muted" />
-              <span className="text-claude-muted">offline</span>
-            </>
-          )}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setLight((prev) => !prev)}
+            title={light ? 'Switch to dark mode' : 'Switch to light mode'}
+            className="p-1 rounded hover:bg-claude-border/50 text-claude-muted hover:text-claude-text transition-colors"
+          >
+            {light ? <Moon size={14} /> : <Sun size={14} />}
+          </button>
+          <div className="flex items-center gap-1.5 text-xs">
+            {connected ? (
+              <>
+                <Zap size={12} className="text-green-400" />
+                <span className="text-green-400">live</span>
+              </>
+            ) : (
+              <>
+                <ZapOff size={12} className="text-claude-muted" />
+                <span className="text-claude-muted">offline</span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -69,6 +100,24 @@ export function Sidebar({
           />
         ))}
       </div>
+
+      {/* Update banner */}
+      {updateInfo && (
+        <div className="px-4 py-3 border-t border-claude-border">
+          <a
+            href="https://www.npmjs.com/package/claude-dump"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-xs text-claude-accent hover:underline"
+          >
+            <ArrowUpCircle size={14} />
+            <span>v{updateInfo.latest} available (current: v{updateInfo.current})</span>
+          </a>
+          <p className="text-[10px] text-claude-muted mt-1">
+            npm update -g claude-dump
+          </p>
+        </div>
+      )}
     </div>
   );
 }

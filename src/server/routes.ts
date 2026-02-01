@@ -1,6 +1,29 @@
 import { Router } from 'express';
 import { execFile } from 'child_process';
+import { createRequire } from 'module';
 import type { SessionStore } from './session-store.js';
+
+const require = createRequire(import.meta.url);
+const PKG_NAME = 'claude-dump';
+const CURRENT_VERSION: string = require('../../package.json').version;
+
+let cachedLatest: { version: string; checkedAt: number } | null = null;
+const CACHE_TTL = 1000 * 60 * 60; // 1 hour
+
+async function getLatestVersion(): Promise<string | null> {
+  if (cachedLatest && Date.now() - cachedLatest.checkedAt < CACHE_TTL) {
+    return cachedLatest.version;
+  }
+  try {
+    const res = await fetch(`https://registry.npmjs.org/${PKG_NAME}/latest`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    cachedLatest = { version: data.version, checkedAt: Date.now() };
+    return data.version;
+  } catch {
+    return null;
+  }
+}
 
 export function createRoutes(store: SessionStore): Router {
   const router = Router();
@@ -58,6 +81,11 @@ export function createRoutes(store: SessionStore): Router {
       }
       res.json({ ok: true });
     });
+  });
+
+  router.get('/version', async (_req, res) => {
+    const latest = await getLatestVersion();
+    res.json({ current: CURRENT_VERSION, latest });
   });
 
   return router;

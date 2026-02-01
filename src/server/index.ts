@@ -56,7 +56,7 @@ async function main() {
     const { default: path } = await import("path");
     const { fileURLToPath } = await import("url");
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
-    app.use(express.static(path.join(__dirname, "..", "client")));
+    app.use(express.static(path.join(__dirname, "..", "..", "client")));
 
     // Production: no Vite, simple upgrade handler
     server.on("upgrade", (request, socket, head) => {

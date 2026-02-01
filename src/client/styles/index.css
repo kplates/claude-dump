@@ -3,9 +3,39 @@
 @tailwind utilities;
 
 @layer base {
+  /* Dark theme (default) */
+  :root {
+    --claude-bg: #1a1a2e;
+    --claude-surface: #16213e;
+    --claude-accent: #e94560;
+    --claude-text: #eaeaea;
+    --claude-muted: #8892b0;
+    --claude-border: #2a2a4a;
+    --claude-user: #0f3460;
+    --claude-assistant: #1a1a3e;
+    --claude-diff-surface: #16213e;
+    --claude-diff-del: rgba(233, 69, 96, 0.15);
+    --claude-diff-ins: rgba(80, 200, 120, 0.15);
+  }
+
+  /* Light theme */
+  .light {
+    --claude-bg: #f5f5f5;
+    --claude-surface: #ffffff;
+    --claude-accent: #d63031;
+    --claude-text: #1a1a2e;
+    --claude-muted: #636e72;
+    --claude-border: #dfe6e9;
+    --claude-user: #dfe6e9;
+    --claude-assistant: #f0f0f5;
+    --claude-diff-surface: #ffffff;
+    --claude-diff-del: rgba(233, 69, 96, 0.12);
+    --claude-diff-ins: rgba(80, 200, 120, 0.12);
+  }
+
   * {
     scrollbar-width: thin;
-    scrollbar-color: #2a2a4a transparent;
+    scrollbar-color: var(--claude-border) transparent;
   }
 
   *::-webkit-scrollbar {
@@ -17,7 +47,7 @@
   }
 
   *::-webkit-scrollbar-thumb {
-    background-color: #2a2a4a;
+    background-color: var(--claude-border);
     border-radius: 3px;
   }
 
@@ -27,7 +57,7 @@
   }
 }
 
-/* diff2html overrides for dark theme */
+/* diff2html overrides */
 .d2h-wrapper {
   font-size: 0.85rem !important;
 }
@@ -53,7 +83,7 @@
 .d2h-diff-tbody,
 .d2h-diff-tbody tr,
 .d2h-diff-tbody td {
-  background-color: #16213e !important;
+  background-color: var(--claude-diff-surface) !important;
   padding: 0 !important;
   margin: 0 !important;
 }
@@ -66,7 +96,7 @@
 /* Line numbers - just style the text, inherit background */
 .d2h-code-linenumber,
 .d2h-code-side-linenumber {
-  color: #8892b0 !important;
+  color: var(--claude-muted) !important;
   position: static !important;
   padding: 0 8px !important;
   text-align: right !important;
@@ -83,7 +113,7 @@
 .d2h-code-line,
 .d2h-code-side-line {
   background-color: transparent !important;
-  color: #eaeaea !important;
+  color: var(--claude-text) !important;
   width: auto !important;
   padding: 0 !important;
   display: block !important;
@@ -101,25 +131,25 @@
 
 /* Info header (@@ lines) */
 .d2h-info {
-  background-color: #1a1a2e !important;
-  color: #8892b0 !important;
+  background-color: var(--claude-bg) !important;
+  color: var(--claude-muted) !important;
   position: static !important;
 }
 
 .d2h-diff-tbody td.d2h-info,
 .d2h-diff-tbody td.d2h-code-linenumber.d2h-info {
-  background-color: #1a1a2e !important;
+  background-color: var(--claude-bg) !important;
   width: 100% !important;
 }
 
 /* Deletions (red) */
 .d2h-diff-tbody tr.d2h-del td,
 .d2h-diff-tbody td.d2h-del {
-  background-color: rgba(233, 69, 96, 0.15) !important;
+  background-color: var(--claude-diff-del) !important;
 }
 
 /* Insertions (green) */
 .d2h-diff-tbody tr.d2h-ins td,
 .d2h-diff-tbody td.d2h-ins {
-  background-color: rgba(80, 200, 120, 0.15) !important;
+  background-color: var(--claude-diff-ins) !important;
 }
