@@ -1,4 +1,4 @@
-# claude-dummp
+# claude-dump
 
 Real-time web viewer for your [Claude Code](https://docs.anthropic.com/en/docs/claude-code) conversation history.
 
@@ -7,27 +7,27 @@ Browse, search, and review past Claude Code sessions in a live-updating web inte
 ## Install
 
 ```bash
-npm install -g claude-dummp
+npm install -g claude-dump
 ```
 
 ## Usage
 
 ```bash
-claude-dummp
+claude-dump
 ```
 
 This starts a local server and opens the viewer in your browser at `http://localhost:3456`.
 
 ### Options
 
-| Environment Variable | Default | Description |
-|---|---|---|
-| `PORT` | `3456` | Port for the web server |
+| Environment Variable | Default | Description             |
+| -------------------- | ------- | ----------------------- |
+| `PORT`               | `3456`  | Port for the web server |
 
 Example:
 
 ```bash
-PORT=8080 claude-dummp
+PORT=8080 claude-dump
 ```
 
 ## Features
@@ -42,13 +42,13 @@ PORT=8080 claude-dummp
 
 ## How it works
 
-claude-dummp reads from `~/.claude/projects/`, where Claude Code stores conversation history as JSONL files. It watches for changes and pushes updates to the browser over WebSocket.
+claude-dump reads from `~/.claude/projects/`, where Claude Code stores conversation history as JSONL files. It watches for changes and pushes updates to the browser over WebSocket.
 
 ## Development
 
 ```bash
-git clone https://github.com/your-username/claude-dummp.git
-cd claude-dummp
+git clone https://github.com/your-username/claude-dump.git
+cd claude-dump
 npm install
 npm run dev
 ```
