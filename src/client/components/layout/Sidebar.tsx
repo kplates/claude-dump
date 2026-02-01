@@ -1,4 +1,4 @@
-import { ChevronRight, ChevronDown, Zap, ZapOff, MessageSquare } from 'lucide-react';
+import { ChevronRight, ChevronDown, Zap, ZapOff, MessageSquare, Columns2 } from 'lucide-react';
 import type { ProjectInfo, SessionInfo } from '@shared/types';
 
 interface SidebarProps {
@@ -6,8 +6,10 @@ interface SidebarProps {
   sessions: Map<string, SessionInfo[]>;
   selectedProject: string | null;
   selectedSession: string | null;
+  openSessionIds: Set<string>;
   onSelectProject: (projectId: string) => void;
   onSelectSession: (projectId: string, sessionId: string) => void;
+  onOpenInNewPane: (projectId: string, sessionId: string) => void;
   connected: boolean;
 }
 
@@ -16,8 +18,10 @@ export function Sidebar({
   sessions,
   selectedProject,
   selectedSession,
+  openSessionIds,
   onSelectProject,
   onSelectSession,
+  onOpenInNewPane,
   connected,
 }: SidebarProps) {
   return (
@@ -54,9 +58,13 @@ export function Sidebar({
             sessions={sessions.get(project.id) || []}
             isExpanded={selectedProject === project.id}
             selectedSession={selectedSession}
+            openSessionIds={openSessionIds}
             onSelect={() => onSelectProject(project.id)}
             onSelectSession={(sessionId) =>
               onSelectSession(project.id, sessionId)
+            }
+            onOpenInNewPane={(sessionId) =>
+              onOpenInNewPane(project.id, sessionId)
             }
           />
         ))}
@@ -70,15 +78,19 @@ function ProjectItem({
   sessions,
   isExpanded,
   selectedSession,
+  openSessionIds,
   onSelect,
   onSelectSession,
+  onOpenInNewPane,
 }: {
   project: ProjectInfo;
   sessions: SessionInfo[];
   isExpanded: boolean;
   selectedSession: string | null;
+  openSessionIds: Set<string>;
   onSelect: () => void;
   onSelectSession: (sessionId: string) => void;
+  onOpenInNewPane: (sessionId: string) => void;
 }) {
   // Show last part of path as display name
   const displayName = project.path.split('/').filter(Boolean).slice(-2).join('/');
@@ -109,7 +121,9 @@ function ProjectItem({
               key={session.sessionId}
               session={session}
               isSelected={selectedSession === session.sessionId}
+              isOpenInPane={openSessionIds.has(session.sessionId)}
               onSelect={() => onSelectSession(session.sessionId)}
+              onOpenInNewPane={() => onOpenInNewPane(session.sessionId)}
             />
           ))}
         </div>
@@ -121,11 +135,15 @@ function ProjectItem({
 function SessionItem({
   session,
   isSelected,
+  isOpenInPane,
   onSelect,
+  onOpenInNewPane,
 }: {
   session: SessionInfo;
   isSelected: boolean;
+  isOpenInPane: boolean;
   onSelect: () => void;
+  onOpenInNewPane: () => void;
 }) {
   const title = session.summary || session.firstPrompt || 'Untitled';
   const truncatedTitle =
@@ -133,13 +151,15 @@ function SessionItem({
   const timeAgo = formatRelativeTime(session.modified);
 
   return (
-    <button
-      onClick={onSelect}
-      className={`w-full px-3 py-2 flex items-start gap-2 text-left transition-colors ${
+    <div
+      className={`group w-full px-3 py-2 flex items-start gap-2 text-left transition-colors cursor-pointer ${
         isSelected
           ? 'bg-claude-accent/20 border-l-2 border-claude-accent'
-          : 'hover:bg-claude-border/30 border-l-2 border-transparent'
+          : isOpenInPane
+            ? 'bg-claude-accent/10 border-l-2 border-claude-accent/50 hover:bg-claude-accent/15'
+            : 'hover:bg-claude-border/30 border-l-2 border-transparent'
       }`}
+      onClick={onSelect}
     >
       <MessageSquare size={12} className="text-claude-muted mt-0.5 flex-shrink-0" />
       <div className="min-w-0 flex-1">
@@ -148,7 +168,17 @@ function SessionItem({
           {timeAgo} &middot; {session.messageCount} msgs
         </div>
       </div>
-    </button>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenInNewPane();
+        }}
+        title="Open in new pane"
+        className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-claude-border/50 text-claude-muted hover:text-claude-text transition-all flex-shrink-0 mt-0.5"
+      >
+        <Columns2 size={12} />
+      </button>
+    </div>
   );
 }
 

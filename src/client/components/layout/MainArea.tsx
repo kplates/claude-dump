@@ -5,22 +5,11 @@ import type { Turn, SessionInfo } from '@shared/types';
 interface MainAreaProps {
   turns: Turn[];
   loading: boolean;
-  selectedSession: { projectId: string; sessionId: string } | null;
+  selectedSession: { projectId: string; sessionId: string };
   sessions: Map<string, SessionInfo[]>;
 }
 
 export function MainArea({ turns, loading, selectedSession, sessions }: MainAreaProps) {
-  if (!selectedSession) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-claude-bg">
-        <div className="text-center text-claude-muted">
-          <p className="text-lg mb-2">Claude Dump</p>
-          <p className="text-sm">Select a session to view the conversation</p>
-        </div>
-      </div>
-    );
-  }
-
   // Find session meta
   const sessionList = sessions.get(selectedSession.projectId) || [];
   const sessionMeta = sessionList.find(

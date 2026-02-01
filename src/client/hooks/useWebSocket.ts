@@ -8,7 +8,7 @@ export function useWebSocket(onMessage: MessageHandler) {
   const [connected, setConnected] = useState(false);
   const handlersRef = useRef(onMessage);
   handlersRef.current = onMessage;
-  const pendingSubRef = useRef<ClientMessage | null>(null);
+  const pendingSubsRef = useRef<Map<string, ClientMessage>>(new Map());
 
   useEffect(() => {
     let reconnectTimer: ReturnType<typeof setTimeout>;
@@ -24,9 +24,9 @@ export function useWebSocket(onMessage: MessageHandler) {
       ws.onopen = () => {
         if (disposed) { ws.close(); return; }
         setConnected(true);
-        // Re-subscribe on reconnect
-        if (pendingSubRef.current) {
-          ws.send(JSON.stringify(pendingSubRef.current));
+        // Re-subscribe all active sessions on reconnect
+        for (const sub of pendingSubsRef.current.values()) {
+          ws.send(JSON.stringify(sub));
         }
       };
 
@@ -61,11 +61,11 @@ export function useWebSocket(onMessage: MessageHandler) {
   }, []);
 
   const send = useCallback((msg: ClientMessage) => {
-    // Track the latest subscription so we can re-send on reconnect
+    // Track subscriptions so we can re-send all on reconnect
     if (msg.type === 'subscribe_session') {
-      pendingSubRef.current = msg;
+      pendingSubsRef.current.set(msg.sessionId, msg);
     } else if (msg.type === 'unsubscribe_session') {
-      pendingSubRef.current = null;
+      pendingSubsRef.current.delete(msg.sessionId);
     }
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(msg));
