@@ -113,6 +113,31 @@ export function createRoutes(store: SessionStore): Router {
     });
   });
 
+  router.post('/open-in-terminal-new', (req, res) => {
+    const { projectPath } = req.body;
+    if (!projectPath || typeof projectPath !== 'string') {
+      res.status(400).json({ error: 'Missing projectPath' });
+      return;
+    }
+    const shell = process.env.SHELL || '/bin/zsh';
+    const safePath = projectPath.replace(/'/g, "'\\''");
+    const scriptPath = join(tmpdir(), `claude-new-${Date.now()}.command`);
+    const scriptContent = `#!${shell} -l\nrm -f '${scriptPath.replace(/'/g, "\\'")}'\nunset COLORTERM\ncd '${safePath}'\nclaude\n`;
+    try {
+      writeFileSync(scriptPath, scriptContent, { mode: 0o755 });
+    } catch {
+      res.status(500).json({ error: 'Failed to create launch script' });
+      return;
+    }
+    execFile('open', [scriptPath], (err) => {
+      if (err) {
+        res.status(500).json({ error: 'Failed to open terminal' });
+        return;
+      }
+      res.json({ ok: true });
+    });
+  });
+
   router.get('/version', async (_req, res) => {
     const latest = await getLatestVersion();
     res.json({ current: CURRENT_VERSION, latest });

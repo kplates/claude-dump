@@ -1,8 +1,12 @@
+<p align="center">
+  <img src="assets/dump.png" alt="claude-dump" width="120" />
+</p>
+
 # claude-dump
 
-Real-time web viewer for your [Claude Code](https://docs.anthropic.com/en/docs/claude-code) conversation history.
+Real-time web dashboard for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
-Browse and review past Claude Code sessions in a live-updating web interface — with syntax highlighting, diff views for file edits, and collapsible thinking blocks.
+Browse all your projects and sessions in a live-updating interface with syntax highlighting, diff views, and collapsible thinking blocks. Open sessions side-by-side in split panes, resume conversations in a terminal, launch new Claude instances, and jump straight into your editor — all from one window.
 
 ## Install
 
@@ -56,6 +60,7 @@ claude-dump /path/to/projects --port 8080
 - **Light / dark mode** — toggle between themes, preference is saved
 - **Open in editor** — open a project in Cursor or VS Code directly from the viewer
 - **Open in terminal** — resume any session in a new terminal window with one click
+- **New Claude instance** — launch a fresh Claude Code session in any project directory from the sidebar
 - **Recent activity** — recent chats section with live activity badges and relative timestamps
 - **Syntax highlighting** — code blocks are highlighted automatically
 - **Diff views** — file edits and writes render as unified diffs

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, ChevronDown, Zap, ZapOff, MessageSquare, Columns2, Sun, Moon, ArrowUpCircle, Clock } from 'lucide-react';
+import { ChevronRight, ChevronDown, Zap, ZapOff, MessageSquare, Columns2, Sun, Moon, ArrowUpCircle, Clock, Terminal } from 'lucide-react';
 import type { ProjectInfo, SessionInfo } from '@shared/types';
 
 interface SidebarProps {
@@ -287,9 +287,9 @@ function ProjectItem({
 
   return (
     <div>
-      <button
+      <div
         onClick={onSelect}
-        className="w-full px-4 py-2 flex items-center gap-2 hover:bg-claude-border/30 transition-colors text-left"
+        className="group w-full px-4 py-2 flex items-center gap-2 hover:bg-claude-border/30 transition-colors text-left cursor-pointer"
       >
         {isExpanded ? (
           <ChevronDown size={14} className="text-claude-muted flex-shrink-0" />
@@ -303,7 +303,21 @@ function ProjectItem({
           </div>
         </div>
         {latestActivity && <ActivityPill timestamp={latestActivity} />}
-      </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            fetch('/api/open-in-terminal-new', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ projectPath: project.path }),
+            });
+          }}
+          title="New Claude instance"
+          className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-claude-border/50 text-claude-muted hover:text-claude-text transition-all flex-shrink-0"
+        >
+          <Terminal size={14} />
+        </button>
+      </div>
 
       {isExpanded && sessions.length > 0 && (
         <div className="ml-4 border-l border-claude-border">
