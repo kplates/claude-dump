@@ -1,5 +1,8 @@
 import { Router } from 'express';
 import { execFile } from 'child_process';
+import { writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { createRequire } from 'module';
 import type { SessionStore } from './session-store.js';
 
@@ -77,6 +80,33 @@ export function createRoutes(store: SessionStore): Router {
     execFile(cmd, [path], (err) => {
       if (err) {
         res.status(500).json({ error: `Failed to open ${editor}` });
+        return;
+      }
+      res.json({ ok: true });
+    });
+  });
+
+  router.post('/open-in-terminal', (req, res) => {
+    const { sessionId, projectPath } = req.body;
+    if (!sessionId || typeof sessionId !== 'string' || !/^[a-zA-Z0-9-]+$/.test(sessionId)) {
+      res.status(400).json({ error: 'Invalid sessionId' });
+      return;
+    }
+    const shell = process.env.SHELL || '/bin/zsh';
+    const cdLine = projectPath && typeof projectPath === 'string'
+      ? `cd '${projectPath.replace(/'/g, "'\\''")}'\n`
+      : '';
+    const scriptPath = join(tmpdir(), `claude-resume-${sessionId}.command`);
+    const scriptContent = `#!${shell} -l\nrm -f '${scriptPath.replace(/'/g, "\\'")}'\nunset COLORTERM\n${cdLine}claude --resume ${sessionId}\n`;
+    try {
+      writeFileSync(scriptPath, scriptContent, { mode: 0o755 });
+    } catch {
+      res.status(500).json({ error: 'Failed to create launch script' });
+      return;
+    }
+    execFile('open', [scriptPath], (err) => {
+      if (err) {
+        res.status(500).json({ error: 'Failed to open terminal' });
         return;
       }
       res.json({ ok: true });

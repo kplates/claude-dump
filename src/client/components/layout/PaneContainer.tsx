@@ -67,7 +67,7 @@ export function PaneContainer({
                 <span className="text-xs text-claude-text">{truncatedTitle}</span>
               </div>
               <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                <ResumeDropdown sessionId={pane.session.sessionId} />
+                <ResumeDropdown sessionId={pane.session.sessionId} projectPath={projectInfo?.path} />
                 <EditorDropdown path={projectInfo?.path} />
                 {multiPane && (
                   <button
