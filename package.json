@@ -1,6 +1,6 @@
 {
   "name": "claude-dump",
-  "version": "0.3.0",
+  "version": "0.2.1",
   "description": "Real-time web viewer for Claude Code conversation history",
   "type": "module",
   "license": "MIT",
