@@ -49,7 +49,7 @@ export function Sidebar({
     fetch('/api/version')
       .then((res) => res.json())
       .then((data: { current: string; latest: string | null }) => {
-        if (data.latest && data.latest !== data.current) {
+        if (data.latest && isNewerVersion(data.latest, data.current)) {
           setUpdateInfo({ current: data.current, latest: data.latest });
         }
       })
@@ -423,4 +423,14 @@ function formatRelativeTime(isoDate: string): string {
   if (diffDays < 7) return `${diffDays}d ago`;
 
   return date.toLocaleDateString();
+}
+
+function isNewerVersion(latest: string, current: string): boolean {
+  const l = latest.split('.').map(Number);
+  const c = current.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((l[i] || 0) > (c[i] || 0)) return true;
+    if ((l[i] || 0) < (c[i] || 0)) return false;
+  }
+  return false;
 }
