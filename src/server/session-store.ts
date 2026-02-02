@@ -194,6 +194,11 @@ export class SessionStore {
     }
   }
 
+  getCachedTurnCount(sessionId: string): number | null {
+    const cached = this.cachedTurns.get(sessionId);
+    return cached ? cached.length : null;
+  }
+
   getFilePathForSession(projectId: string, sessionId: string): string {
     return path.join(this.projectsDir, projectId, `${sessionId}.jsonl`);
   }

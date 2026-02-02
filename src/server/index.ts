@@ -6,6 +6,7 @@ import { SessionStore } from "./session-store.js";
 import { ProjectWatcher } from "./watcher.js";
 import { createRoutes } from "./routes.js";
 import { existsSync } from "fs";
+import fs from "fs/promises";
 import { execFile } from "child_process";
 import type { ClientMessage, ServerMessage } from "../shared/protocol.js";
 
@@ -147,6 +148,29 @@ async function main() {
       for (const [ws, subs] of clientSubscriptions) {
         if (subs.has(event.sessionId) && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify(msg));
+        }
+      }
+
+      // Broadcast lightweight meta update to ALL clients so non-subscribed
+      // clients can show unread indicators
+      const cached = store.getCachedTurnCount(event.sessionId);
+      const filePath = store.getFilePathForSession(event.projectId, event.sessionId);
+      let modified: string | undefined;
+      try {
+        const stat = await fs.stat(filePath);
+        modified = stat.mtime.toISOString();
+      } catch { /* ignore */ }
+      const metaMsg: ServerMessage = {
+        type: 'session_meta_update',
+        sessionId: event.sessionId,
+        meta: {
+          ...(cached != null ? { messageCount: cached } : {}),
+          ...(modified ? { modified } : {}),
+        },
+      };
+      for (const [ws] of clientSubscriptions) {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(metaMsg));
         }
       }
     } else if (event.type === "index_changed") {

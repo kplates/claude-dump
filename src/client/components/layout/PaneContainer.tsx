@@ -38,7 +38,7 @@ export function PaneContainer({
   const multiPane = paneList.length > 1;
 
   return (
-    <div className="flex-1 flex min-w-0">
+    <div className="flex-1 flex min-w-0 overflow-hidden">
       {paneList.map((pane) => {
         const isActive = pane.id === activePaneId;
         const projectInfo = projects.find((p) => p.id === pane.session.projectId);

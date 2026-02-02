@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { Sidebar } from './components/layout/Sidebar';
 import { PaneContainer } from './components/layout/PaneContainer';
@@ -25,6 +25,7 @@ export function App() {
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [panes, setPanes] = useState<Map<string, Pane>>(new Map());
   const [activePaneId, setActivePaneId] = useState<string | null>(null);
+  const [sessionActivity, setSessionActivity] = useState<Map<string, string>>(new Map());
 
   // Derive the active pane's session ID for sidebar highlighting
   const activePane = activePaneId ? panes.get(activePaneId) ?? null : null;
@@ -38,6 +39,12 @@ export function App() {
     }
     return ids;
   }, [panes]);
+
+  // Refs for access inside handleMessage (which has [] deps)
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
+  const openSessionIdsRef = useRef(openSessionIds);
+  openSessionIdsRef.current = openSessionIds;
 
   // Count how many panes reference each sessionId
   function countPanesForSession(sessionId: string): number {
@@ -62,9 +69,26 @@ export function App() {
         case 'projects':
           setProjects(msg.projects);
           break;
-        case 'sessions':
+        case 'sessions': {
+          const prevSessions = sessionsRef.current.get(msg.projectId) || [];
+          const now = new Date().toISOString();
+          const newActivity: string[] = [];
+          for (const session of msg.sessions) {
+            const prev = prevSessions.find((s) => s.sessionId === session.sessionId);
+            if (prev && session.messageCount > prev.messageCount) {
+              newActivity.push(session.sessionId);
+            }
+          }
+          if (newActivity.length > 0) {
+            setSessionActivity((prev) => {
+              const next = new Map(prev);
+              for (const id of newActivity) next.set(id, now);
+              return next;
+            });
+          }
           setSessions((prev) => new Map(prev).set(msg.projectId, msg.sessions));
           break;
+        }
         case 'session_data':
           // Route to all panes showing this session
           setPanes((prev) => {
@@ -104,7 +128,22 @@ export function App() {
             return [msg.project, ...prev];
           });
           break;
-        case 'session_meta_update':
+        case 'session_meta_update': {
+          // Detect activity: if messageCount increased
+          if (msg.meta.messageCount != null) {
+            let prevCount: number | undefined;
+            for (const [, sessionList] of sessionsRef.current) {
+              const s = sessionList.find((s) => s.sessionId === msg.sessionId);
+              if (s) { prevCount = s.messageCount; break; }
+            }
+            if (prevCount !== undefined && msg.meta.messageCount > prevCount) {
+              setSessionActivity((prev) => {
+                const next = new Map(prev);
+                next.set(msg.sessionId, new Date().toISOString());
+                return next;
+              });
+            }
+          }
           setSessions((prev) => {
             const next = new Map(prev);
             for (const [projectId, sessionList] of next) {
@@ -120,6 +159,7 @@ export function App() {
             return next;
           });
           break;
+        }
       }
     },
     []
@@ -166,6 +206,32 @@ export function App() {
     },
     [send]
   );
+
+  // Prune stale sessionActivity entries every 60s (30-minute expiry)
+  useEffect(() => {
+    const EXPIRY_MS = 30 * 60 * 1000;
+    const id = setInterval(() => {
+      setSessionActivity((prev) => {
+        const cutoff = Date.now() - EXPIRY_MS;
+        let hasStale = false;
+        for (const ts of prev.values()) {
+          if (new Date(ts).getTime() < cutoff) {
+            hasStale = true;
+            break;
+          }
+        }
+        if (!hasStale) return prev;
+        const next = new Map<string, string>();
+        for (const [key, ts] of prev) {
+          if (new Date(ts).getTime() >= cutoff) {
+            next.set(key, ts);
+          }
+        }
+        return next;
+      });
+    }, 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   // Load projects via REST on mount
   useEffect(() => {
@@ -298,13 +364,14 @@ export function App() {
   );
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full min-w-0">
       <Sidebar
         projects={projects}
         sessions={sessions}
         selectedProject={selectedProject}
         selectedSession={selectedSession}
         openSessionIds={openSessionIds}
+        sessionActivity={sessionActivity}
         onSelectProject={handleSelectProject}
         onSelectSession={handleSelectSession}
         onOpenInNewPane={handleOpenInNewPane}

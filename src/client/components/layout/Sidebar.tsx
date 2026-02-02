@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, ChevronDown, Zap, ZapOff, MessageSquare, Columns2, Sun, Moon, ArrowUpCircle } from 'lucide-react';
+import { ChevronRight, ChevronDown, Zap, ZapOff, MessageSquare, Columns2, Sun, Moon, ArrowUpCircle, Clock } from 'lucide-react';
 import type { ProjectInfo, SessionInfo } from '@shared/types';
 
 interface SidebarProps {
@@ -8,6 +8,7 @@ interface SidebarProps {
   selectedProject: string | null;
   selectedSession: string | null;
   openSessionIds: Set<string>;
+  sessionActivity: Map<string, string>;
   onSelectProject: (projectId: string) => void;
   onSelectSession: (projectId: string, sessionId: string) => void;
   onOpenInNewPane: (projectId: string, sessionId: string) => void;
@@ -20,6 +21,7 @@ export function Sidebar({
   selectedProject,
   selectedSession,
   openSessionIds,
+  sessionActivity,
   onSelectProject,
   onSelectSession,
   onOpenInNewPane,
@@ -29,6 +31,14 @@ export function Sidebar({
     document.documentElement.classList.contains('light')
   );
   const [updateInfo, setUpdateInfo] = useState<{ current: string; latest: string } | null>(null);
+
+  // Tick every 10s to keep activity pills up to date
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (sessionActivity.size === 0) return;
+    const id = setInterval(() => setTick((t) => t + 1), 10000);
+    return () => clearInterval(id);
+  }, [sessionActivity.size]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('light', light);
@@ -75,8 +85,22 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* Project list */}
+      {/* Scrollable area */}
       <div className="flex-1 overflow-y-auto py-2">
+        {/* Recent Chats */}
+        {sessionActivity.size > 0 && (
+          <RecentChats
+            sessionActivity={sessionActivity}
+            sessions={sessions}
+            projects={projects}
+            selectedSession={selectedSession}
+            openSessionIds={openSessionIds}
+            onSelectSession={onSelectSession}
+            onOpenInNewPane={onOpenInNewPane}
+          />
+        )}
+
+        {/* Project list */}
         {projects.length === 0 && (
           <p className="text-claude-muted text-sm px-4 py-8 text-center">
             No projects found
@@ -90,6 +114,7 @@ export function Sidebar({
             isExpanded={selectedProject === project.id}
             selectedSession={selectedSession}
             openSessionIds={openSessionIds}
+            sessionActivity={sessionActivity}
             onSelect={() => onSelectProject(project.id)}
             onSelectSession={(sessionId) =>
               onSelectSession(project.id, sessionId)
@@ -122,12 +147,118 @@ export function Sidebar({
   );
 }
 
+function RecentChats({
+  sessionActivity,
+  sessions,
+  projects,
+  selectedSession,
+  openSessionIds,
+  onSelectSession,
+  onOpenInNewPane,
+}: {
+  sessionActivity: Map<string, string>;
+  sessions: Map<string, SessionInfo[]>;
+  projects: ProjectInfo[];
+  selectedSession: string | null;
+  openSessionIds: Set<string>;
+  onSelectSession: (projectId: string, sessionId: string) => void;
+  onOpenInNewPane: (projectId: string, sessionId: string) => void;
+}) {
+  // Build list of recent chats by looking up each active sessionId
+  const recentChats: Array<{
+    sessionId: string;
+    projectId: string;
+    session: SessionInfo;
+    project: ProjectInfo;
+    activityTs: string;
+  }> = [];
+
+  for (const [sessionId, activityTs] of sessionActivity) {
+    // Find the session and its project
+    for (const [projectId, sessionList] of sessions) {
+      const session = sessionList.find((s) => s.sessionId === sessionId);
+      if (session) {
+        const project = projects.find((p) => p.id === projectId);
+        if (project) {
+          recentChats.push({ sessionId, projectId, session, project, activityTs });
+        }
+        break;
+      }
+    }
+  }
+
+  // Sort by activity timestamp descending (most recent first)
+  recentChats.sort((a, b) => (b.activityTs > a.activityTs ? 1 : b.activityTs < a.activityTs ? -1 : 0));
+
+  if (recentChats.length === 0) return null;
+
+  return (
+    <div className="pb-2 mb-1 border-b border-claude-border">
+      <div className="px-4 pt-1 pb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-claude-muted uppercase tracking-wide">
+        <Clock size={11} />
+        Recent
+      </div>
+      {recentChats.map(({ sessionId, projectId, session, project, activityTs }) => {
+        const title = session.summary || session.firstPrompt || 'Untitled';
+        const truncatedTitle = title.length > 50 ? title.slice(0, 50) + '...' : title;
+        const projectLabel = project.path.split('/').filter(Boolean).slice(-2).join('/');
+        const isSelected = selectedSession === sessionId;
+        const isOpenInPane = openSessionIds.has(sessionId);
+
+        return (
+          <div
+            key={sessionId}
+            className={`group w-full px-4 py-1.5 flex items-start gap-2 text-left transition-colors cursor-pointer ${
+              isSelected
+                ? 'bg-claude-accent/20'
+                : isOpenInPane
+                  ? 'bg-claude-accent/10 hover:bg-claude-accent/15'
+                  : 'hover:bg-claude-border/30'
+            }`}
+            onClick={() => onSelectSession(projectId, sessionId)}
+          >
+            <MessageSquare size={12} className="mt-0.5 flex-shrink-0 text-green-400" />
+            <div className="min-w-0 flex-1">
+              <div className="text-xs truncate">{truncatedTitle}</div>
+              <div className="text-[10px] text-claude-muted mt-0.5 flex items-center gap-1.5">
+                <span className="truncate">{projectLabel}</span>
+                <ActivityPill timestamp={activityTs} />
+              </div>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenInNewPane(projectId, sessionId);
+              }}
+              title="Open in new pane"
+              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-claude-border/50 text-claude-muted hover:text-claude-text transition-all flex-shrink-0 mt-0.5"
+            >
+              <Columns2 size={12} />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ActivityPill({ timestamp }: { timestamp: string }) {
+  const label = formatActivityTime(timestamp);
+  return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-400 text-[10px] font-medium leading-none whitespace-nowrap flex-shrink-0">
+      <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+      {label}
+    </span>
+  );
+}
+
 function ProjectItem({
   project,
   sessions,
   isExpanded,
   selectedSession,
   openSessionIds,
+  sessionActivity,
   onSelect,
   onSelectSession,
   onOpenInNewPane,
@@ -137,12 +268,22 @@ function ProjectItem({
   isExpanded: boolean;
   selectedSession: string | null;
   openSessionIds: Set<string>;
+  sessionActivity: Map<string, string>;
   onSelect: () => void;
   onSelectSession: (sessionId: string) => void;
   onOpenInNewPane: (sessionId: string) => void;
 }) {
   // Show last part of path as display name
   const displayName = project.path.split('/').filter(Boolean).slice(-2).join('/');
+
+  // Find the most recent activity timestamp among this project's sessions
+  let latestActivity: string | null = null;
+  for (const s of sessions) {
+    const ts = sessionActivity.get(s.sessionId);
+    if (ts && (!latestActivity || ts > latestActivity)) {
+      latestActivity = ts;
+    }
+  }
 
   return (
     <div>
@@ -161,6 +302,7 @@ function ProjectItem({
             {project.sessionCount} session{project.sessionCount !== 1 ? 's' : ''}
           </div>
         </div>
+        {latestActivity && <ActivityPill timestamp={latestActivity} />}
       </button>
 
       {isExpanded && sessions.length > 0 && (
@@ -171,6 +313,7 @@ function ProjectItem({
               session={session}
               isSelected={selectedSession === session.sessionId}
               isOpenInPane={openSessionIds.has(session.sessionId)}
+              activityTimestamp={sessionActivity.get(session.sessionId) || null}
               onSelect={() => onSelectSession(session.sessionId)}
               onOpenInNewPane={() => onOpenInNewPane(session.sessionId)}
             />
@@ -185,12 +328,14 @@ function SessionItem({
   session,
   isSelected,
   isOpenInPane,
+  activityTimestamp,
   onSelect,
   onOpenInNewPane,
 }: {
   session: SessionInfo;
   isSelected: boolean;
   isOpenInPane: boolean;
+  activityTimestamp: string | null;
   onSelect: () => void;
   onOpenInNewPane: () => void;
 }) {
@@ -210,11 +355,12 @@ function SessionItem({
       }`}
       onClick={onSelect}
     >
-      <MessageSquare size={12} className="text-claude-muted mt-0.5 flex-shrink-0" />
+      <MessageSquare size={12} className={`mt-0.5 flex-shrink-0 ${activityTimestamp ? 'text-green-400' : 'text-claude-muted'}`} />
       <div className="min-w-0 flex-1">
         <div className="text-xs truncate">{truncatedTitle}</div>
-        <div className="text-[10px] text-claude-muted mt-0.5">
-          {timeAgo} &middot; {session.messageCount} msgs
+        <div className="text-[10px] text-claude-muted mt-0.5 flex items-center gap-1.5">
+          <span>{timeAgo} &middot; {session.messageCount} msgs</span>
+          {activityTimestamp && <ActivityPill timestamp={activityTimestamp} />}
         </div>
       </div>
       <button
@@ -229,6 +375,22 @@ function SessionItem({
       </button>
     </div>
   );
+}
+
+function formatActivityTime(isoDate: string): string {
+  const date = new Date(isoDate);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+
+  if (diffSec < 5) return 'just now';
+  if (diffSec < 60) return `${diffSec}s ago`;
+
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+
+  const diffHours = Math.floor(diffMin / 60);
+  return `${diffHours}h ago`;
 }
 
 function formatRelativeTime(isoDate: string): string {
