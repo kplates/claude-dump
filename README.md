@@ -55,6 +55,8 @@ claude-dump /path/to/projects --port 8080
 - **Split panes** — open multiple sessions side-by-side (up to 4)
 - **Light / dark mode** — toggle between themes, preference is saved
 - **Open in editor** — open a project in Cursor or VS Code directly from the viewer
+- **Open in terminal** — resume any session in a new terminal window with one click
+- **Recent activity** — recent chats section with live activity badges and relative timestamps
 - **Syntax highlighting** — code blocks are highlighted automatically
 - **Diff views** — file edits and writes render as unified diffs
 - **Thinking blocks** — collapsible extended thinking sections
