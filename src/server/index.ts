@@ -17,7 +17,7 @@ const PORT = parseInt(
   portFlag >= 0 && args[portFlag + 1] ? args[portFlag + 1] : process.env.PORT || "3456",
   10
 );
-const isDev = process.env.NODE_ENV !== "production";
+const isDev = process.env.NODE_ENV === "development";
 const noOpen = args.includes("--no-open");
 
 if (args.includes("--help") || args.includes("-h")) {

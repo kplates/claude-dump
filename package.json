@@ -24,7 +24,7 @@
     "dist"
   ],
   "scripts": {
-    "dev": "tsx src/server/index.ts",
+    "dev": "NODE_ENV=development tsx src/server/index.ts",
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
     "build:server": "tsc -p tsconfig.server.json",
