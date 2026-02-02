@@ -8,7 +8,7 @@ import type { SessionStore } from './session-store.js';
 
 const require = createRequire(import.meta.url);
 const PKG_NAME = 'claude-dump';
-const CURRENT_VERSION: string = require('../../package.json').version;
+const CURRENT_VERSION: string = require('../../../package.json').version;
 
 let cachedLatest: { version: string; checkedAt: number } | null = null;
 const CACHE_TTL = 1000 * 60 * 60; // 1 hour
