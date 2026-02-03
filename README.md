@@ -6,7 +6,7 @@
 
 Real-time web dashboard for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
-Browse all your projects and sessions in a live-updating interface with syntax highlighting, diff views, and collapsible thinking blocks. Open sessions side-by-side in split panes, resume conversations in a terminal, launch new Claude instances, and jump straight into your editor — all from one window.
+Browse all your projects and sessions in a live-updating interface with syntax highlighting, diff views, and collapsible thinking blocks. Start new chats or resume existing ones directly in an embedded terminal, open sessions side-by-side in split panes, launch external terminal sessions, and jump straight into your editor — all from one window.
 
 ## Install
 
@@ -57,10 +57,12 @@ claude-dump /path/to/projects --port 8080
 - **Live updates** — conversations stream in real-time as you use Claude Code
 - **Project browser** — sidebar lists all your Claude Code projects and sessions
 - **Split panes** — open multiple sessions side-by-side (up to 4)
+- **Embedded terminal** — chat with Claude directly in the browser using an integrated XTerm terminal
+- **New chat** — start a fresh Claude conversation from any project via the sidebar dropdown
+- **Resume chat** — reopen existing sessions in the embedded terminal or launch in an external terminal
+- **Delete sessions/projects** — right-click context menu to remove sessions or entire projects
 - **Light / dark mode** — toggle between themes, preference is saved
 - **Open in editor** — open a project in Cursor or VS Code directly from the viewer
-- **Open in terminal** — resume any session in a new terminal window with one click
-- **New Claude instance** — launch a fresh Claude Code session in any project directory from the sidebar
 - **Recent activity** — recent chats section with live activity badges and relative timestamps
 - **Syntax highlighting** — code blocks are highlighted automatically
 - **Diff views** — file edits and writes render as unified diffs
