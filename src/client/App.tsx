@@ -3,7 +3,8 @@ import { useWebSocket } from './hooks/useWebSocket';
 import { Sidebar } from './components/layout/Sidebar';
 import { PaneContainer } from './components/layout/PaneContainer';
 import { ConfirmDialog } from './components/common/ConfirmDialog';
-import type { ServerMessage } from '@shared/protocol';
+import { extractTitle } from './utils/extractTitle';
+import type { ServerMessage, ClientMessage } from '@shared/protocol';
 import type { ProjectInfo, SessionInfo, Turn } from '@shared/types';
 
 const MAX_PANES = 4;
@@ -59,7 +60,7 @@ export function App() {
   openSessionIdsRef.current = openSessionIds;
   const panesRef = useRef(panes);
   panesRef.current = panes;
-  const sendRef = useRef<((msg: unknown) => void) | null>(null);
+  const sendRef = useRef<((msg: ClientMessage) => void) | null>(null);
 
   // Count how many panes reference each sessionId
   function countPanesForSession(sessionId: string): number {
@@ -527,12 +528,12 @@ export function App() {
       // Find session title for confirmation dialog
       const sessionList = sessions.get(projectId);
       const session = sessionList?.find((s) => s.sessionId === sessionId);
-      const title = session?.summary || session?.firstPrompt || 'this session';
+      const title = session?.summary || extractTitle(session?.firstPrompt, 50);
       setDeleteConfirm({
         type: 'session',
         projectId,
         sessionId,
-        title: title.length > 50 ? title.slice(0, 50) + '...' : title,
+        title,
       });
     },
     [sessions]

@@ -1,6 +1,7 @@
 import { Loader2 } from 'lucide-react';
 import { ConversationView } from '../conversation/ConversationView';
 import type { Turn, SessionInfo } from '@shared/types';
+import { extractTitle } from '../../utils/extractTitle';
 
 interface MainAreaProps {
   turns: Turn[];
@@ -22,7 +23,7 @@ export function MainArea({ turns, loading, selectedSession, sessions }: MainArea
       {sessionMeta && (
         <div className="px-6 py-3 border-b border-claude-border bg-claude-surface/50">
           <h2 className="text-sm font-medium truncate">
-            {sessionMeta.summary || sessionMeta.firstPrompt || 'Untitled'}
+            {sessionMeta.summary || extractTitle(sessionMeta.firstPrompt)}
           </h2>
           <div className="text-xs text-claude-muted mt-0.5">
             {new Date(sessionMeta.created).toLocaleString()} &middot;{' '}

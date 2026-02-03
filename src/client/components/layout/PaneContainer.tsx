@@ -5,6 +5,7 @@ import { EditorDropdown } from '../shared/EditorDropdown';
 import { TerminalView } from '../terminal/TerminalView';
 import type { Pane } from '../../App';
 import type { ProjectInfo, SessionInfo } from '@shared/types';
+import { extractTitle } from '../../utils/extractTitle';
 
 interface PaneContainerProps {
   panes: Map<string, Pane>;
@@ -107,8 +108,7 @@ export function PaneContainer({
         );
         const title = pane.isNewChat
           ? 'New Chat'
-          : (sessionMeta?.summary || sessionMeta?.firstPrompt || 'Untitled');
-        const truncatedTitle = title.length > 40 ? title.slice(0, 40) + '...' : title;
+          : (sessionMeta?.summary || extractTitle(sessionMeta?.firstPrompt, 40));
 
         return (
           <div
@@ -122,7 +122,7 @@ export function PaneContainer({
               <div className="truncate flex-1 min-w-0">
                 <span className="text-[10px] text-claude-muted">{projectName}</span>
                 <span className="text-[10px] text-claude-muted mx-1">/</span>
-                <span className="text-xs text-claude-text">{truncatedTitle}</span>
+                <span className="text-xs text-claude-text">{title}</span>
               </div>
               <div className="flex items-center gap-1 flex-shrink-0 ml-2">
                 {!pane.isNewChat && (

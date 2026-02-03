@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { ChevronRight, ChevronDown, Zap, ZapOff, MessageSquare, Columns2, Sun, Moon, ArrowUpCircle, Clock, Terminal, Plus, ChevronDownIcon } from 'lucide-react';
 import type { ProjectInfo, SessionInfo } from '@shared/types';
 import { ContextMenu, type ContextMenuItem } from '../common/ContextMenu';
+import { extractTitle } from '../../utils/extractTitle';
 
 interface ContextMenuState {
   type: 'session' | 'project';
@@ -260,8 +261,7 @@ function RecentChats({
         Recent
       </div>
       {recentChats.map(({ sessionId, projectId, session, project, activityTs }) => {
-        const title = session.summary || session.firstPrompt || 'Untitled';
-        const truncatedTitle = title.length > 50 ? title.slice(0, 50) + '...' : title;
+        const title = session.summary || extractTitle(session.firstPrompt);
         const projectLabel = project.path.split('/').filter(Boolean).slice(-2).join('/');
         const isSelected = selectedSession === sessionId;
         const isOpenInPane = openSessionIds.has(sessionId);
@@ -281,7 +281,7 @@ function RecentChats({
           >
             <MessageSquare size={12} className="mt-0.5 flex-shrink-0 text-green-400" />
             <div className="min-w-0 flex-1">
-              <div className="text-xs truncate">{truncatedTitle}</div>
+              <div className="text-xs truncate">{title}</div>
               <div className="text-[10px] text-claude-muted mt-0.5 flex items-center gap-1.5">
                 <span className="truncate">{projectLabel}</span>
                 <ActivityPill timestamp={activityTs} />
@@ -479,9 +479,7 @@ function SessionItem({
   onOpenInNewPane: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
 }) {
-  const title = session.summary || session.firstPrompt || 'Untitled';
-  const truncatedTitle =
-    title.length > 60 ? title.slice(0, 60) + '...' : title;
+  const title = session.summary || extractTitle(session.firstPrompt);
   const timeAgo = formatRelativeTime(session.modified);
 
   return (
@@ -498,7 +496,7 @@ function SessionItem({
     >
       <MessageSquare size={12} className={`mt-0.5 flex-shrink-0 ${activityTimestamp ? 'text-green-400' : 'text-claude-muted'}`} />
       <div className="min-w-0 flex-1">
-        <div className="text-xs truncate">{truncatedTitle}</div>
+        <div className="text-xs truncate">{title}</div>
         <div className="text-[10px] text-claude-muted mt-0.5 flex items-center gap-1.5">
           <span>{timeAgo} &middot; {session.messageCount} msgs</span>
           {activityTimestamp && <ActivityPill timestamp={activityTimestamp} />}

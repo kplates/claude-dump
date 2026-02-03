@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { html } from 'diff2html';
+import { ColorSchemeType } from 'diff2html/lib/types';
 import 'diff2html/bundles/css/diff2html.min.css';
 
 interface DiffViewerProps {
@@ -17,7 +18,7 @@ export function DiffViewer({ diff }: DiffViewerProps) {
         drawFileList: false,
         matching: 'lines',
         outputFormat,
-        colorScheme: 'dark',
+        colorScheme: ColorSchemeType.DARK,
       }),
     [diff, outputFormat]
   );

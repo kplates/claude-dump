@@ -131,10 +131,22 @@ export class SessionStore {
 
         const indexed = indexMap.get(sessionId);
         const fileMtime = stat.mtime.toISOString();
+
+        // If index is missing firstPrompt, try to extract it from the JSONL file
+        let firstPrompt = indexed?.firstPrompt || "";
+        if (!firstPrompt) {
+          const extracted = await this.extractFirstPrompt(filePath);
+          // Skip sessions with no conversation content (only file-history-snapshot entries)
+          if (extracted === null) {
+            continue;
+          }
+          firstPrompt = extracted;
+        }
+
         sessions.push({
           sessionId,
           projectId,
-          firstPrompt: indexed?.firstPrompt || "",
+          firstPrompt,
           summary: indexed?.summary || "",
           messageCount: indexed?.messageCount || 0,
           created: indexed?.created || stat.birthtime.toISOString(),
@@ -149,6 +161,58 @@ export class SessionStore {
     // Sort newest first
     sessions.sort((a, b) => b.modified.localeCompare(a.modified));
     return sessions;
+  }
+
+  /**
+   * Extract the first user prompt from a session JSONL file.
+   * This is used as a fallback when the sessions-index.json doesn't have the firstPrompt.
+   * Returns null if the file has no conversation content (only file-history-snapshot entries).
+   */
+  private async extractFirstPrompt(filePath: string): Promise<string | null> {
+    try {
+      const content = await fs.readFile(filePath, "utf-8");
+      const lines = content.split("\n");
+
+      let hasConversationContent = false;
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const msg = JSON.parse(line);
+
+          // Skip non-conversation entries (file-history-snapshot, summary, etc.)
+          if (msg.type === "user" || msg.type === "assistant") {
+            hasConversationContent = true;
+          }
+
+          // Look for the first user message with text content
+          if (msg.type === "user" && msg.message?.content) {
+            const msgContent = msg.message.content;
+            if (typeof msgContent === "string") {
+              return msgContent.slice(0, 200); // Truncate for display
+            }
+            // Handle array content (look for text blocks)
+            if (Array.isArray(msgContent)) {
+              for (const block of msgContent) {
+                if (block.type === "text" && block.text) {
+                  return block.text.slice(0, 200);
+                }
+              }
+            }
+          }
+        } catch {
+          // Skip malformed lines
+        }
+      }
+
+      // Return null if file has no conversation content (should be filtered out)
+      if (!hasConversationContent) {
+        return null;
+      }
+    } catch {
+      // File read failed
+    }
+    return "";
   }
 
   async getSessionTurns(projectId: string, sessionId: string): Promise<Turn[]> {
