@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { Sidebar } from './components/layout/Sidebar';
 import { PaneContainer } from './components/layout/PaneContainer';
+import { ConfirmDialog } from './components/common/ConfirmDialog';
 import type { ServerMessage } from '@shared/protocol';
 import type { ProjectInfo, SessionInfo, Turn } from '@shared/types';
 
@@ -12,6 +13,16 @@ export interface Pane {
   session: { projectId: string; sessionId: string };
   turns: Turn[];
   loading: boolean;
+  terminalOpen: boolean;
+  isNewChat?: boolean;
+  createdAt?: number; // Timestamp for matching new chats to sessions
+}
+
+interface DeleteConfirmState {
+  type: 'session' | 'project';
+  projectId: string;
+  sessionId?: string;
+  title: string;
 }
 
 let nextPaneId = 1;
@@ -26,6 +37,7 @@ export function App() {
   const [panes, setPanes] = useState<Map<string, Pane>>(new Map());
   const [activePaneId, setActivePaneId] = useState<string | null>(null);
   const [sessionActivity, setSessionActivity] = useState<Map<string, string>>(new Map());
+  const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null);
 
   // Derive the active pane's session ID for sidebar highlighting
   const activePane = activePaneId ? panes.get(activePaneId) ?? null : null;
@@ -45,6 +57,9 @@ export function App() {
   sessionsRef.current = sessions;
   const openSessionIdsRef = useRef(openSessionIds);
   openSessionIdsRef.current = openSessionIds;
+  const panesRef = useRef(panes);
+  panesRef.current = panes;
+  const sendRef = useRef<((msg: unknown) => void) | null>(null);
 
   // Count how many panes reference each sessionId
   function countPanesForSession(sessionId: string): number {
@@ -73,6 +88,7 @@ export function App() {
           const prevSessions = sessionsRef.current.get(msg.projectId) || [];
           const now = new Date().toISOString();
           const newActivity: string[] = [];
+
           for (const session of msg.sessions) {
             const prev = prevSessions.find((s) => s.sessionId === session.sessionId);
             if (prev && session.messageCount > prev.messageCount) {
@@ -86,7 +102,37 @@ export function App() {
               return next;
             });
           }
+
           setSessions((prev) => new Map(prev).set(msg.projectId, msg.sessions));
+          break;
+        }
+        case 'new_session_created': {
+          // Server notified us that a new session was created for one of our watching panes
+          const pane = panesRef.current.get(msg.paneId);
+          if (pane?.isNewChat && pane.session.projectId === msg.projectId) {
+            // Update the pane with the real session ID
+            setPanes((prev) => {
+              const next = new Map(prev);
+              const existingPane = next.get(msg.paneId);
+              if (existingPane?.isNewChat) {
+                next.set(msg.paneId, {
+                  ...existingPane,
+                  session: { projectId: msg.projectId, sessionId: msg.sessionId },
+                  isNewChat: false,
+                  createdAt: undefined,
+                });
+              }
+              return next;
+            });
+            // Subscribe to the real session for live updates
+            if (sendRef.current) {
+              sendRef.current({
+                type: 'subscribe_session',
+                sessionId: msg.sessionId,
+                projectId: msg.projectId,
+              });
+            }
+          }
           break;
         }
         case 'session_data':
@@ -160,12 +206,82 @@ export function App() {
           });
           break;
         }
+        case 'session_deleted': {
+          // Remove session from sessions map
+          setSessions((prev) => {
+            const next = new Map(prev);
+            const sessionList = next.get(msg.projectId);
+            if (sessionList) {
+              next.set(
+                msg.projectId,
+                sessionList.filter((s) => s.sessionId !== msg.sessionId)
+              );
+            }
+            return next;
+          });
+          // Update project session count
+          setProjects((prev) =>
+            prev.map((p) =>
+              p.id === msg.projectId
+                ? { ...p, sessionCount: Math.max(0, p.sessionCount - 1) }
+                : p
+            )
+          );
+          // Remove from activity
+          setSessionActivity((prev) => {
+            const next = new Map(prev);
+            next.delete(msg.sessionId);
+            return next;
+          });
+          // Close any panes showing this session
+          setPanes((prev) => {
+            const next = new Map(prev);
+            for (const [id, pane] of next) {
+              if (pane.session.sessionId === msg.sessionId) {
+                next.delete(id);
+              }
+            }
+            return next;
+          });
+          break;
+        }
+        case 'project_deleted': {
+          // Remove project from projects list
+          setProjects((prev) => prev.filter((p) => p.id !== msg.projectId));
+          // Remove all sessions for this project
+          setSessions((prev) => {
+            const next = new Map(prev);
+            next.delete(msg.projectId);
+            return next;
+          });
+          // Remove activity for sessions in this project
+          setSessionActivity((prev) => {
+            const next = new Map(prev);
+            // We don't have easy access to which sessions belong to this project,
+            // but the sessions state update will handle the UI
+            return next;
+          });
+          // Close any panes showing sessions from this project
+          setPanes((prev) => {
+            const next = new Map(prev);
+            for (const [id, pane] of next) {
+              if (pane.session.projectId === msg.projectId) {
+                next.delete(id);
+              }
+            }
+            return next;
+          });
+          // Clear selected project if it was deleted
+          setSelectedProject((prev) => (prev === msg.projectId ? null : prev));
+          break;
+        }
       }
     },
     []
   );
 
   const { send, connected } = useWebSocket(handleMessage);
+  sendRef.current = send;
 
   // Load a session into a specific pane via REST, then subscribe for real-time updates
   const loadSession = useCallback(
@@ -175,7 +291,7 @@ export function App() {
         const next = new Map(prev);
         const existing = next.get(paneId);
         if (existing) {
-          next.set(paneId, { ...existing, session: { projectId, sessionId }, turns: [], loading: true });
+          next.set(paneId, { ...existing, session: { projectId, sessionId }, turns: [], loading: true, isNewChat: false });
         }
         return next;
       });
@@ -282,6 +398,7 @@ export function App() {
           session: { projectId, sessionId },
           turns: [],
           loading: true,
+          terminalOpen: false,
         };
         setPanes((prev) => new Map(prev).set(paneId, newPane));
         setActivePaneId(paneId);
@@ -320,6 +437,7 @@ export function App() {
         session: { projectId, sessionId },
         turns: [],
         loading: true,
+        terminalOpen: false,
       };
       setPanes((prev) => new Map(prev).set(paneId, newPane));
       setActivePaneId(paneId);
@@ -339,16 +457,21 @@ export function App() {
         const sessionId = pane.session.sessionId;
         next.delete(paneId);
 
-        // Unsubscribe only if no other pane shares this session
-        let otherHasSession = false;
-        for (const p of next.values()) {
-          if (p.session.sessionId === sessionId) {
-            otherHasSession = true;
-            break;
+        // If it's a new chat pane, stop watching for new sessions
+        if (pane.isNewChat) {
+          send({ type: 'unwatch_new_session', paneId });
+        } else {
+          // Unsubscribe only if no other pane shares this session
+          let otherHasSession = false;
+          for (const p of next.values()) {
+            if (p.session.sessionId === sessionId) {
+              otherHasSession = true;
+              break;
+            }
           }
-        }
-        if (!otherHasSession) {
-          send({ type: 'unsubscribe_session', sessionId });
+          if (!otherHasSession) {
+            send({ type: 'unsubscribe_session', sessionId });
+          }
         }
 
         // Update active pane if the closed one was active
@@ -363,6 +486,88 @@ export function App() {
     [activePaneId, send]
   );
 
+  const handleToggleTerminal = useCallback(
+    (paneId: string, open: boolean) => {
+      setPanes((prev) => {
+        const next = new Map(prev);
+        const pane = next.get(paneId);
+        if (!pane) return prev;
+        next.set(paneId, { ...pane, terminalOpen: open });
+        return next;
+      });
+    },
+    []
+  );
+
+  const handleStartNewChat = useCallback(
+    (projectId: string) => {
+      // Generate a temporary session ID for the new chat
+      const tempSessionId = `new-${Date.now()}`;
+      const paneId = generatePaneId();
+      const newPane: Pane = {
+        id: paneId,
+        session: { projectId, sessionId: tempSessionId },
+        turns: [],
+        loading: false,
+        terminalOpen: true,
+        isNewChat: true,
+        createdAt: Date.now(),
+      };
+      setPanes((prev) => new Map(prev).set(paneId, newPane));
+      setActivePaneId(paneId);
+
+      // Tell server to watch for new sessions in this project for this pane
+      send({ type: 'watch_new_session', projectId, paneId });
+    },
+    [send]
+  );
+
+  const handleDeleteSession = useCallback(
+    (projectId: string, sessionId: string) => {
+      // Find session title for confirmation dialog
+      const sessionList = sessions.get(projectId);
+      const session = sessionList?.find((s) => s.sessionId === sessionId);
+      const title = session?.summary || session?.firstPrompt || 'this session';
+      setDeleteConfirm({
+        type: 'session',
+        projectId,
+        sessionId,
+        title: title.length > 50 ? title.slice(0, 50) + '...' : title,
+      });
+    },
+    [sessions]
+  );
+
+  const handleDeleteProject = useCallback(
+    (projectId: string) => {
+      const project = projects.find((p) => p.id === projectId);
+      const title = project?.path.split('/').filter(Boolean).slice(-2).join('/') || projectId;
+      setDeleteConfirm({
+        type: 'project',
+        projectId,
+        title,
+      });
+    },
+    [projects]
+  );
+
+  const confirmDelete = useCallback(() => {
+    if (!deleteConfirm) return;
+    if (deleteConfirm.type === 'session' && deleteConfirm.sessionId) {
+      send({
+        type: 'delete_session',
+        projectId: deleteConfirm.projectId,
+        sessionId: deleteConfirm.sessionId,
+      });
+    } else if (deleteConfirm.type === 'project') {
+      send({
+        type: 'delete_project',
+        projectId: deleteConfirm.projectId,
+      });
+    }
+    setDeleteConfirm(null);
+  }, [deleteConfirm, send]);
+
   return (
     <div className="flex h-full min-w-0">
       <Sidebar
@@ -375,6 +580,9 @@ export function App() {
         onSelectProject={handleSelectProject}
         onSelectSession={handleSelectSession}
         onOpenInNewPane={handleOpenInNewPane}
+        onDeleteSession={handleDeleteSession}
+        onDeleteProject={handleDeleteProject}
+        onStartNewChat={handleStartNewChat}
         connected={connected}
       />
       <PaneContainer
@@ -384,7 +592,23 @@ export function App() {
         sessions={sessions}
         onActivatePane={setActivePaneId}
         onClosePane={handleClosePane}
+        onToggleTerminal={handleToggleTerminal}
+        onStartNewChat={handleStartNewChat}
       />
+      {deleteConfirm && (
+        <ConfirmDialog
+          title={deleteConfirm.type === 'session' ? 'Delete Session' : 'Delete Project'}
+          message={
+            deleteConfirm.type === 'session'
+              ? `Are you sure you want to delete "${deleteConfirm.title}"? This cannot be undone.`
+              : `Are you sure you want to delete the project "${deleteConfirm.title}" and all its sessions? This cannot be undone.`
+          }
+          confirmLabel="Delete"
+          danger
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteConfirm(null)}
+        />
+      )}
     </div>
   );
 }

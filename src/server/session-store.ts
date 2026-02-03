@@ -206,6 +206,59 @@ export class SessionStore {
   getProjectsDir(): string {
     return this.projectsDir;
   }
+
+  async deleteSession(projectId: string, sessionId: string): Promise<boolean> {
+    const projectDir = path.join(this.projectsDir, projectId);
+    const sessionFile = path.join(projectDir, `${sessionId}.jsonl`);
+
+    try {
+      // Delete the session file
+      await fs.unlink(sessionFile);
+
+      // Clean up internal caches
+      this.fileOffsets.delete(sessionFile);
+      this.cachedTurns.delete(sessionId);
+
+      // Update sessions-index.json to remove the entry
+      const indexPath = path.join(projectDir, "sessions-index.json");
+      try {
+        const raw = await fs.readFile(indexPath, "utf-8");
+        const index: SessionIndex = JSON.parse(raw);
+        index.entries = index.entries.filter((e) => e.sessionId !== sessionId);
+        await fs.writeFile(indexPath, JSON.stringify(index, null, 2), "utf-8");
+      } catch {
+        // Index might not exist, that's fine
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async deleteProject(projectId: string): Promise<boolean> {
+    const projectDir = path.join(this.projectsDir, projectId);
+
+    try {
+      // Clean up caches for all sessions in this project
+      const files = await fs.readdir(projectDir).catch(() => []);
+      for (const file of files) {
+        if (file.endsWith(".jsonl")) {
+          const sessionId = file.replace(".jsonl", "");
+          const filePath = path.join(projectDir, file);
+          this.fileOffsets.delete(filePath);
+          this.cachedTurns.delete(sessionId);
+        }
+      }
+
+      // Delete the entire project directory
+      await fs.rm(projectDir, { recursive: true });
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
 
 function decodeProjectDir(dirName: string): string {

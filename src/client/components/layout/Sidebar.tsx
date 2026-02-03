@@ -1,6 +1,15 @@
-import { useState, useEffect } from 'react';
-import { ChevronRight, ChevronDown, Zap, ZapOff, MessageSquare, Columns2, Sun, Moon, ArrowUpCircle, Clock, Terminal } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { ChevronRight, ChevronDown, Zap, ZapOff, MessageSquare, Columns2, Sun, Moon, ArrowUpCircle, Clock, Terminal, Plus, ChevronDownIcon } from 'lucide-react';
 import type { ProjectInfo, SessionInfo } from '@shared/types';
+import { ContextMenu, type ContextMenuItem } from '../common/ContextMenu';
+
+interface ContextMenuState {
+  type: 'session' | 'project';
+  x: number;
+  y: number;
+  projectId: string;
+  sessionId?: string;
+}
 
 interface SidebarProps {
   projects: ProjectInfo[];
@@ -12,6 +21,9 @@ interface SidebarProps {
   onSelectProject: (projectId: string) => void;
   onSelectSession: (projectId: string, sessionId: string) => void;
   onOpenInNewPane: (projectId: string, sessionId: string) => void;
+  onDeleteSession: (projectId: string, sessionId: string) => void;
+  onDeleteProject: (projectId: string) => void;
+  onStartNewChat: (projectId: string) => void;
   connected: boolean;
 }
 
@@ -25,12 +37,16 @@ export function Sidebar({
   onSelectProject,
   onSelectSession,
   onOpenInNewPane,
+  onDeleteSession,
+  onDeleteProject,
+  onStartNewChat,
   connected,
 }: SidebarProps) {
   const [light, setLight] = useState(() =>
     document.documentElement.classList.contains('light')
   );
   const [updateInfo, setUpdateInfo] = useState<{ current: string; latest: string } | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   // Tick every 10s to keep activity pills up to date
   const [, setTick] = useState(0);
@@ -97,6 +113,10 @@ export function Sidebar({
             openSessionIds={openSessionIds}
             onSelectSession={onSelectSession}
             onOpenInNewPane={onOpenInNewPane}
+            onContextMenu={(e, projectId, sessionId) => {
+              e.preventDefault();
+              setContextMenu({ type: 'session', x: e.clientX, y: e.clientY, projectId, sessionId });
+            }}
           />
         )}
 
@@ -122,6 +142,15 @@ export function Sidebar({
             onOpenInNewPane={(sessionId) =>
               onOpenInNewPane(project.id, sessionId)
             }
+            onStartNewChat={() => onStartNewChat(project.id)}
+            onProjectContextMenu={(e) => {
+              e.preventDefault();
+              setContextMenu({ type: 'project', x: e.clientX, y: e.clientY, projectId: project.id });
+            }}
+            onSessionContextMenu={(e, sessionId) => {
+              e.preventDefault();
+              setContextMenu({ type: 'session', x: e.clientX, y: e.clientY, projectId: project.id, sessionId });
+            }}
           />
         ))}
       </div>
@@ -143,6 +172,36 @@ export function Sidebar({
           </p>
         </div>
       )}
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          items={
+            contextMenu.type === 'session'
+              ? [
+                  {
+                    label: 'Delete Session',
+                    onClick: () => {
+                      if (contextMenu.sessionId) {
+                        onDeleteSession(contextMenu.projectId, contextMenu.sessionId);
+                      }
+                    },
+                    danger: true,
+                  },
+                ]
+              : [
+                  {
+                    label: 'Delete Project',
+                    onClick: () => onDeleteProject(contextMenu.projectId),
+                    danger: true,
+                  },
+                ]
+          }
+        />
+      )}
     </div>
   );
 }
@@ -155,6 +214,7 @@ function RecentChats({
   openSessionIds,
   onSelectSession,
   onOpenInNewPane,
+  onContextMenu,
 }: {
   sessionActivity: Map<string, string>;
   sessions: Map<string, SessionInfo[]>;
@@ -163,6 +223,7 @@ function RecentChats({
   openSessionIds: Set<string>;
   onSelectSession: (projectId: string, sessionId: string) => void;
   onOpenInNewPane: (projectId: string, sessionId: string) => void;
+  onContextMenu: (e: React.MouseEvent, projectId: string, sessionId: string) => void;
 }) {
   // Build list of recent chats by looking up each active sessionId
   const recentChats: Array<{
@@ -216,6 +277,7 @@ function RecentChats({
                   : 'hover:bg-claude-border/30'
             }`}
             onClick={() => onSelectSession(projectId, sessionId)}
+            onContextMenu={(e) => onContextMenu(e, projectId, sessionId)}
           >
             <MessageSquare size={12} className="mt-0.5 flex-shrink-0 text-green-400" />
             <div className="min-w-0 flex-1">
@@ -252,6 +314,73 @@ function ActivityPill({ timestamp }: { timestamp: string }) {
   );
 }
 
+function NewChatDropdown({
+  projectPath,
+  onStartNewChat,
+}: {
+  projectPath: string;
+  onStartNewChat: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((prev) => !prev);
+        }}
+        title="New chat or terminal"
+        className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-claude-border/50 text-claude-muted hover:text-claude-text transition-all flex-shrink-0"
+      >
+        <Plus size={14} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-50 bg-claude-surface border border-claude-border rounded-md shadow-lg py-1 min-w-[120px]">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              onStartNewChat();
+            }}
+            className="w-full px-3 py-1.5 text-left text-xs text-claude-text hover:bg-claude-border/30 transition-colors flex items-center gap-2"
+          >
+            <MessageSquare size={12} />
+            New Chat
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              fetch('/api/open-in-terminal-new', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectPath }),
+              }).catch(() => {});
+            }}
+            className="w-full px-3 py-1.5 text-left text-xs text-claude-text hover:bg-claude-border/30 transition-colors flex items-center gap-2"
+          >
+            <Terminal size={12} />
+            Terminal
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProjectItem({
   project,
   sessions,
@@ -262,6 +391,9 @@ function ProjectItem({
   onSelect,
   onSelectSession,
   onOpenInNewPane,
+  onStartNewChat,
+  onProjectContextMenu,
+  onSessionContextMenu,
 }: {
   project: ProjectInfo;
   sessions: SessionInfo[];
@@ -272,6 +404,9 @@ function ProjectItem({
   onSelect: () => void;
   onSelectSession: (sessionId: string) => void;
   onOpenInNewPane: (sessionId: string) => void;
+  onStartNewChat: () => void;
+  onProjectContextMenu: (e: React.MouseEvent) => void;
+  onSessionContextMenu: (e: React.MouseEvent, sessionId: string) => void;
 }) {
   // Show last part of path as display name
   const displayName = project.path.split('/').filter(Boolean).slice(-2).join('/');
@@ -289,6 +424,7 @@ function ProjectItem({
     <div>
       <div
         onClick={onSelect}
+        onContextMenu={onProjectContextMenu}
         className="group w-full px-4 py-2 flex items-center gap-2 hover:bg-claude-border/30 transition-colors text-left cursor-pointer"
       >
         {isExpanded ? (
@@ -303,20 +439,7 @@ function ProjectItem({
           </div>
         </div>
         {latestActivity && <ActivityPill timestamp={latestActivity} />}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            fetch('/api/open-in-terminal-new', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ projectPath: project.path }),
-            });
-          }}
-          title="New Claude instance"
-          className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-claude-border/50 text-claude-muted hover:text-claude-text transition-all flex-shrink-0"
-        >
-          <Terminal size={14} />
-        </button>
+        <NewChatDropdown projectPath={project.path} onStartNewChat={onStartNewChat} />
       </div>
 
       {isExpanded && sessions.length > 0 && (
@@ -330,6 +453,7 @@ function ProjectItem({
               activityTimestamp={sessionActivity.get(session.sessionId) || null}
               onSelect={() => onSelectSession(session.sessionId)}
               onOpenInNewPane={() => onOpenInNewPane(session.sessionId)}
+              onContextMenu={(e) => onSessionContextMenu(e, session.sessionId)}
             />
           ))}
         </div>
@@ -345,6 +469,7 @@ function SessionItem({
   activityTimestamp,
   onSelect,
   onOpenInNewPane,
+  onContextMenu,
 }: {
   session: SessionInfo;
   isSelected: boolean;
@@ -352,6 +477,7 @@ function SessionItem({
   activityTimestamp: string | null;
   onSelect: () => void;
   onOpenInNewPane: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
 }) {
   const title = session.summary || session.firstPrompt || 'Untitled';
   const truncatedTitle =
@@ -368,6 +494,7 @@ function SessionItem({
             : 'hover:bg-claude-border/30 border-l-2 border-transparent'
       }`}
       onClick={onSelect}
+      onContextMenu={onContextMenu}
     >
       <MessageSquare size={12} className={`mt-0.5 flex-shrink-0 ${activityTimestamp ? 'text-green-400' : 'text-claude-muted'}`} />
       <div className="min-w-0 flex-1">

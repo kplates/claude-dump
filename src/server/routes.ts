@@ -1,14 +1,26 @@
 import { Router } from 'express';
 import { execFile } from 'child_process';
-import { writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
-import { join } from 'path';
-import { createRequire } from 'module';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import type { SessionStore } from './session-store.js';
 
-const require = createRequire(import.meta.url);
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const PKG_NAME = 'claude-dump';
-const CURRENT_VERSION: string = require('../../../package.json').version;
+
+// Find package.json - works in both dev (src/server/) and prod (dist/server/server/)
+function findPackageJson(): string {
+  let dir = __dirname;
+  for (let i = 0; i < 5; i++) {
+    const candidate = join(dir, 'package.json');
+    if (existsSync(candidate)) return candidate;
+    dir = dirname(dir);
+  }
+  throw new Error('Could not find package.json');
+}
+
+const CURRENT_VERSION: string = JSON.parse(readFileSync(findPackageJson(), 'utf-8')).version;
 
 let cachedLatest: { version: string; checkedAt: number } | null = null;
 const CACHE_TTL = 1000 * 60 * 60; // 1 hour
@@ -58,6 +70,35 @@ export function createRoutes(store: SessionStore): Router {
       res.json(turns);
     } catch (err) {
       res.status(500).json({ error: 'Failed to load session' });
+    }
+  });
+
+  router.delete('/projects/:projectId/sessions/:sessionId', async (req, res) => {
+    try {
+      const success = await store.deleteSession(
+        req.params.projectId,
+        req.params.sessionId
+      );
+      if (success) {
+        res.json({ ok: true });
+      } else {
+        res.status(404).json({ error: 'Session not found' });
+      }
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to delete session' });
+    }
+  });
+
+  router.delete('/projects/:projectId', async (req, res) => {
+    try {
+      const success = await store.deleteProject(req.params.projectId);
+      if (success) {
+        res.json({ ok: true });
+      } else {
+        res.status(404).json({ error: 'Project not found' });
+      }
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to delete project' });
     }
   });
 

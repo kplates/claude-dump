@@ -5,6 +5,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { SessionStore } from "./session-store.js";
 import { ProjectWatcher } from "./watcher.js";
 import { createRoutes } from "./routes.js";
+import { TerminalManager } from "./terminal-manager.js";
 import { existsSync } from "fs";
 import fs from "fs/promises";
 import { execFile } from "child_process";
@@ -100,9 +101,19 @@ async function main() {
   // Track which session belongs to which project
   const sessionProjectMap = new Map<string, string>();
 
+  // Terminal manager for PTY sessions
+  const terminalManager = new TerminalManager();
+  // Track which terminals belong to which WebSocket client
+  const clientTerminals = new Map<WebSocket, Set<string>>();
+
+  // Track panes waiting for new sessions: client -> Map<paneId, projectId>
+  const newSessionWatchers = new Map<WebSocket, Map<string, string>>();
+
   wss.on("connection", (ws) => {
     console.log("[ws] client connected");
     clientSubscriptions.set(ws, new Set());
+    clientTerminals.set(ws, new Set());
+    newSessionWatchers.set(ws, new Map());
 
     ws.on("message", async (data) => {
       try {
@@ -113,7 +124,11 @@ async function main() {
           msg,
           store,
           clientSubscriptions,
-          sessionProjectMap
+          sessionProjectMap,
+          terminalManager,
+          clientTerminals,
+          wss,
+          newSessionWatchers
         );
       } catch (err) {
         console.error("WebSocket message error:", err);
@@ -121,7 +136,16 @@ async function main() {
     });
 
     ws.on("close", () => {
+      // Clean up any terminals owned by this client
+      const terminals = clientTerminals.get(ws);
+      if (terminals) {
+        for (const sessionId of terminals) {
+          terminalManager.close(sessionId);
+        }
+      }
+      clientTerminals.delete(ws);
       clientSubscriptions.delete(ws);
+      newSessionWatchers.delete(ws);
     });
   });
 
@@ -188,6 +212,25 @@ async function main() {
         }
       }
     } else if (event.type === "new_session") {
+      // Notify any clients watching for new sessions in this project
+      for (const [ws, watchers] of newSessionWatchers) {
+        if (ws.readyState !== WebSocket.OPEN) continue;
+        for (const [paneId, projectId] of watchers) {
+          if (projectId === event.projectId) {
+            const msg: ServerMessage = {
+              type: "new_session_created",
+              paneId,
+              projectId: event.projectId,
+              sessionId: event.sessionId,
+            };
+            ws.send(JSON.stringify(msg));
+            // Remove this watcher since we've matched it
+            watchers.delete(paneId);
+            break; // Only match one pane per new session per client
+          }
+        }
+      }
+
       // Broadcast updated project info
       const projects = await store.getProjects();
       const project = projects.find((p) => p.id === event.projectId);
@@ -272,7 +315,11 @@ async function handleClientMessage(
   msg: ClientMessage,
   store: SessionStore,
   clientSubscriptions: Map<WebSocket, Set<string>>,
-  sessionProjectMap: Map<string, string>
+  sessionProjectMap: Map<string, string>,
+  terminalManager: TerminalManager,
+  clientTerminals: Map<WebSocket, Set<string>>,
+  wss: WebSocketServer,
+  newSessionWatchers: Map<WebSocket, Map<string, string>>
 ): Promise<void> {
   switch (msg.type) {
     case "get_projects": {
@@ -298,6 +345,106 @@ async function handleClientMessage(
       const subs = clientSubscriptions.get(ws);
       if (subs) {
         subs.delete(msg.sessionId);
+      }
+      break;
+    }
+    case "terminal_start": {
+      const terminals = clientTerminals.get(ws);
+      if (terminals) {
+        terminals.add(msg.sessionId);
+      }
+      terminalManager.create(
+        msg.sessionId,
+        msg.projectPath,
+        (data) => {
+          send(ws, { type: "terminal_output", sessionId: msg.sessionId, data });
+        },
+        (code) => {
+          send(ws, { type: "terminal_exit", sessionId: msg.sessionId, code });
+          if (terminals) {
+            terminals.delete(msg.sessionId);
+          }
+        },
+        msg.resume !== false // Default to true for backwards compatibility
+      );
+      break;
+    }
+    case "terminal_input": {
+      terminalManager.write(msg.sessionId, msg.data);
+      break;
+    }
+    case "terminal_resize": {
+      terminalManager.resize(msg.sessionId, msg.cols, msg.rows);
+      break;
+    }
+    case "terminal_close": {
+      terminalManager.close(msg.sessionId);
+      const terminals = clientTerminals.get(ws);
+      if (terminals) {
+        terminals.delete(msg.sessionId);
+      }
+      break;
+    }
+    case "delete_session": {
+      const success = await store.deleteSession(msg.projectId, msg.sessionId);
+      if (success) {
+        // Broadcast session_deleted to all clients
+        const deleteMsg: ServerMessage = {
+          type: "session_deleted",
+          projectId: msg.projectId,
+          sessionId: msg.sessionId,
+        };
+        for (const client of wss.clients) {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify(deleteMsg));
+          }
+        }
+        // Clean up subscriptions for this session
+        for (const [, subs] of clientSubscriptions) {
+          subs.delete(msg.sessionId);
+        }
+        sessionProjectMap.delete(msg.sessionId);
+      }
+      break;
+    }
+    case "delete_project": {
+      // Get all sessions in this project before deleting
+      const sessions = await store.getSessions(msg.projectId);
+      const sessionIds = sessions.map((s) => s.sessionId);
+
+      const success = await store.deleteProject(msg.projectId);
+      if (success) {
+        // Broadcast project_deleted to all clients
+        const deleteMsg: ServerMessage = {
+          type: "project_deleted",
+          projectId: msg.projectId,
+        };
+        for (const client of wss.clients) {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify(deleteMsg));
+          }
+        }
+        // Clean up subscriptions for all sessions in this project
+        for (const sessionId of sessionIds) {
+          for (const [, subs] of clientSubscriptions) {
+            subs.delete(sessionId);
+          }
+          sessionProjectMap.delete(sessionId);
+        }
+      }
+      break;
+    }
+    case "watch_new_session": {
+      const watchers = newSessionWatchers.get(ws);
+      if (watchers) {
+        watchers.set(msg.paneId, msg.projectId);
+      }
+      break;
+    }
+    case "unwatch_new_session": {
+      const watchers = newSessionWatchers.get(ws);
+      if (watchers) {
+        watchers.delete(msg.paneId);
       }
       break;
     }
